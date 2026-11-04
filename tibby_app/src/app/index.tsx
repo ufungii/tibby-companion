@@ -54,7 +54,7 @@ export default function Home() {
   const [speaking, setSpeaking] = useState(false);
   const [playback, setPlayback] = useState<'idle' | 'starting' | 'test' | 'reply'>('idle');
   const [phase, setPhase] = useState<Phase>('idle');
-  const [testPlayed, setTestPlayed] = useState(false);
+  const [testedOutput, setTestedOutput] = useState<string | null>(null);
   const [confirmedOutput, setConfirmedOutput] = useState<string | null>(null);
   const { output, refresh: refreshOutput } = useAudioOutput();
   const audioIdentity = outputIdentity(output);
@@ -129,7 +129,7 @@ export default function Home() {
       !output.connected.some((next) => next.id === previous.id));
     previousOutputs.current = output.connected;
     if (removed && playback !== 'idle') {
-      stopPlayback(); setTestPlayed(false);
+      stopPlayback(); setTestedOutput(null);
       setError('Audio device disconnected. Check the phone output, then replay.');
     }
   }, [output, playback, stopPlayback]);
@@ -236,7 +236,7 @@ export default function Home() {
     const version = ++speechVersion.current;
     const current = () => alive.current && version === speechVersion.current && (!context || guard.current.accepts(context));
     setPlayback('starting'); setError('');
-    if (test) { setTestPlayed(false); setConfirmedOutput(null); }
+    if (test) { setTestedOutput(null); setConfirmedOutput(null); }
     try {
       await Speech.stop();
       if (!current()) return;
@@ -245,7 +245,7 @@ export default function Home() {
       const finish = (completed = false) => {
         if (!current()) return;
         setSpeaking(false); setPlayback('idle');
-        if (test && completed) setTestPlayed(true);
+        if (test && completed) setTestedOutput(audioIdentity);
         void finishAudioPlayback().catch(() => undefined);
       };
       Speech.speak(test ? 'Tibby audio test. Confirm that you can hear this through your selected headphones or speaker.' : answer!.text,
@@ -326,7 +326,7 @@ export default function Home() {
         {Platform.OS === 'web' && <Label style={styles.small}>Browser preview uses the computer audio output; headphone detection is unavailable here.</Label>}
         <Button label={playback !== 'idle' ? 'Stop audio' : 'Test audio'}
           disabled={recording} onPress={() => playback !== 'idle' ? stopPlayback() : void playAudio(true)} secondary />
-        {testPlayed && confirmedOutput !== audioIdentity && <Button label="I heard the test audio" secondary onPress={() => setConfirmedOutput(audioIdentity)} />}
+        {testedOutput === audioIdentity && confirmedOutput !== audioIdentity && <Button label="I heard the test audio" secondary onPress={() => setConfirmedOutput(audioIdentity)} />}
         {confirmedOutput === audioIdentity && <Label style={styles.small}>You confirmed the test was audible. This is a listening check, not automatic verification of the headphone route.</Label>}
       </Section>
       <Section><Label style={styles.title}>6. Chat history</Label>

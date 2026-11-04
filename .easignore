@@ -1,6 +1,7 @@
 # Expo receives only the phone app, not the backend, firmware notes or Git data.
 /*
-!/tibby_app/
+!/tibby_app
+!/tibby_app/**
 
 node_modules/
 .expo/
