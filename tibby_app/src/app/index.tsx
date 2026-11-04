@@ -5,13 +5,14 @@ import type { TextProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import { createRequestGuard } from '../domain';
-import type { Answer, Encounter, Turn } from '../domain';
+import type { Answer, Turn } from '../domain';
 import { backend } from '../services/backend';
 import { createWearable } from '../services/wearable';
 import type { Capture, WearableDevice } from '../services/wearableTypes';
 import { useAudioOutput } from '../hooks/useAudioOutput';
 import { describeOutput, outputIdentity } from '../services/audioOutputTypes';
 import { finishAudioPlayback, prepareAudioPlayback } from '../services/audioOutput';
+import { openDemoConversation } from '../services/demoSession';
 
 type Phase = 'idle' | 'recording' | 'sending' | 'waiting' | 'ready' | 'cancelled' | 'error';
 const phaseLabels: Record<Phase, string> = {
@@ -37,16 +38,13 @@ export default function Home() {
   const [started, setStarted] = useState(false);
   const [server, setServer] = useState({ audio: false, mode: 'check', model: 'Not connected' });
   const [starting, setStarting] = useState(true);
-  const [selecting, setSelecting] = useState(false);
   const [devices, setDevices] = useState<WearableDevice[]>([]);
   const [device, setDevice] = useState<WearableDevice | null>(null);
   const [deviceBusy, setDeviceBusy] = useState(false);
   const [deviceStatus, setDeviceStatus] = useState('Not connected');
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
-  const [roster, setRoster] = useState<Encounter[]>([]);
-  const [candidate, setCandidate] = useState<Encounter | null>(null);
-  const [encounter, setEncounter] = useState<Encounter | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [question, setQuestion] = useState('');
   const [history, setHistory] = useState<Turn[]>([]);
   const [answer, setAnswer] = useState<Answer | null>(null);
@@ -75,15 +73,20 @@ export default function Home() {
     const version = ++operation.current;
     setupController.current?.abort();
     const abort = new AbortController(); setupController.current = abort;
-    setStarting(true); setError('');
+    setStarting(true); setError(''); setStarted(false);
+    guard.current.setEncounter(null); setConversationId(null); setHistory([]);
     try {
-      const encounters = await api.current.start(abort.signal);
+      const conversation = await openDemoConversation(api.current, abort.signal);
       if (alive.current && version === operation.current) {
-        setRoster(encounters); setStarted(true);
+        guard.current.setEncounter(conversation.id, conversation.token);
+        setConversationId(conversation.id); setHistory(conversation.history); setStarted(true);
         setServer({ audio: api.current.supportsAudio, mode: api.current.audioMode ?? 'transcription', model: api.current.modelLabel });
       }
     } catch (cause) {
-      if (alive.current && version === operation.current) setError(cause instanceof Error ? cause.message : 'Service unavailable. Try again.');
+      if (alive.current && version === operation.current) {
+        setError(cause instanceof Error ? cause.message : 'Service unavailable. Try again.');
+        void api.current.end().catch(() => undefined);
+      }
     } finally {
       if (alive.current && version === operation.current) setStarting(false);
     }
@@ -133,30 +136,6 @@ export default function Home() {
       setError('Audio device disconnected. Check the phone output, then replay.');
     }
   }, [output, playback, stopPlayback]);
-  async function choosePatient(patient: Encounter) {
-    cancel();
-    const version = ++operation.current;
-    setupController.current?.abort();
-    const abort = new AbortController(); setupController.current = abort;
-    guard.current.setEncounter(null); setEncounter(null); setCandidate(patient); setHistory([]); setSelecting(true);
-    try { await api.current.selectEncounter(null, abort.signal); }
-    catch (cause) { if (alive.current && version === operation.current) setError(cause instanceof Error ? cause.message : 'Context update failed.'); }
-    finally { if (alive.current && version === operation.current) setSelecting(false); }
-  }
-  async function confirmPatient() {
-    if (!candidate) return;
-    cancel();
-    const selected = candidate; const version = ++operation.current;
-    const abort = new AbortController(); setupController.current = abort; setSelecting(true);
-    try {
-      const token = await api.current.selectEncounter(selected.id, abort.signal);
-      const turns = await api.current.history(selected.id, abort.signal);
-      if (alive.current && version === operation.current) {
-        guard.current.setEncounter(selected.id, token); setEncounter(selected); setHistory(turns);
-      }
-    } catch (cause) { if (alive.current && version === operation.current) setError(cause instanceof Error ? cause.message : 'Confirmation failed.'); }
-    finally { if (alive.current && version === operation.current) setSelecting(false); }
-  }
   function accept(result: Answer, input: string, kind: 'typed' | 'wearable') {
     if (!alive.current || !guard.current.accepts(result.context)) return;
     setAnswer(result); setPhase('ready');
@@ -167,7 +146,7 @@ export default function Home() {
     ].slice(-40));
   }
   async function ask() {
-    if (!encounter || busy || !question.trim()) return;
+    if (!conversationId || busy || !question.trim()) return;
     stopPlayback(); controller.current?.abort();
     const abort = new AbortController(); controller.current = abort;
     const context = guard.current.begin(); const input = question.trim();
@@ -206,7 +185,7 @@ export default function Home() {
     await wearable.disconnect();
   }
   function record() {
-    if (!device || !encounter || busy || !api.current.supportsAudio) return;
+    if (!device || !conversationId || busy || !api.current.supportsAudio) return;
     cancel(); const context = guard.current.begin();
     const abort = new AbortController(); controller.current = abort;
     setBusy(true); setRecording(true); setSeconds(0); setPhase('recording');
@@ -257,7 +236,7 @@ export default function Home() {
   }
   function endSession() {
     cancel(); operation.current += 1; setupController.current?.abort(); guard.current.setEncounter(null);
-    setEncounter(null); setCandidate(null); setHistory([]); setRoster([]); setStarted(false); setSelecting(false); setQuestion('');
+    setConversationId(null); setHistory([]); setStarted(false); setQuestion('');
     void api.current.end().catch(() => { if (alive.current) setError('Local session ended. Server revocation failed; the server session will expire.'); });
     void disconnect().catch(() => undefined);
   }
@@ -288,25 +267,15 @@ export default function Home() {
       {devices.map((found) => <Button key={found.id} label={`Connect ${found.name} (${found.id.slice(-8)})`} disabled={deviceBusy} secondary onPress={() => void connect(found)} />)}
       {Platform.OS === 'web' && <Label style={styles.small}>BLE is available only in the Android/iPhone development build, not this browser preview.</Label>}
     </Section>
-      <Section><Label style={styles.title}>3. Patient context</Label>
-        {!started && <Label style={styles.small}>Waiting for a backend session. Patient selection will appear here.</Label>}
-        <Label style={styles.small}>Select and confirm the patient before capturing audio or asking questions. History is separate for each patient.</Label>
-        {roster.map((patient) => <Pressable key={patient.id} accessibilityRole="radio" accessibilityState={{ checked: candidate?.id === patient.id, disabled: selecting }}
-          disabled={selecting} onPress={() => void choosePatient(patient)} style={[styles.patient, candidate?.id === patient.id && styles.patientSelected]}>
-          <Label style={styles.patientName}>{candidate?.id === patient.id ? '[x]' : '[ ]'} {patient.patientName}</Label>
-          <Label style={styles.small}>ID: {patient.patientId} · DOB: {patient.dateOfBirth}</Label>
-        </Pressable>)}
-        <Button label={selecting ? 'Updating patient...' : encounter ? 'Patient confirmed' : 'Confirm patient'} disabled={!candidate || !!encounter || selecting} onPress={() => void confirmPatient()} />
-      </Section>
-      <Section><Label style={styles.title}>4. Recording and response</Label>
+      <Section><Label style={styles.title}>3. Recording and response</Label>
         <Label accessibilityLiveRegion="polite" style={styles.patientName}>
           {playback === 'starting' ? 'Preparing audio...' : playback === 'reply' && speaking ? 'Playing response' : phaseLabels[phase]}
         </Label>
-        <Label>{encounter ? `Patient: ${encounter.patientName}` : 'Confirm a patient first.'}</Label>
+        {!conversationId && <Label style={styles.small}>{starting ? 'Preparing demo conversation...' : 'Start a session to record or ask questions.'}</Label>}
         <Label style={styles.small}>Capture wearable speech, review its transcript and reply, then ask follow-up questions below. Recording is explicitly started here, not always on.</Label>
         {recording ? <><Label accessibilityLiveRegion="polite">Receiving audio: {seconds.toFixed(1)} seconds</Label>
           <Button label="Stop recording and send" onPress={() => capture.current?.stop()} /></>
-          : <Button label={server.mode === 'check' ? 'Test wearable audio round trip' : 'Record wearable audio'} disabled={!device || !encounter || busy || !server.audio} onPress={record} />}
+          : <Button label={server.mode === 'check' ? 'Test wearable audio round trip' : 'Record wearable audio'} disabled={!device || !conversationId || busy || !server.audio} onPress={record} />}
         {server.mode === 'check' && <Label style={styles.small}>Sends real recorded audio and reads back a receipt. This does not transcribe speech or call AI.</Label>}
         {!server.audio && <Label style={styles.small}>{started
           ? 'Recording is unavailable on this backend version. After the server update, end this session and start a new one.'
@@ -323,7 +292,7 @@ export default function Home() {
           {answer.sources.map((source) => <View key={source.title}><Label style={styles.patientName}>{source.title}</Label><Label style={styles.small}>{source.detail}</Label></View>)}
         </View>}
       </Section>
-      <Section><Label style={styles.title}>5. Audio output</Label>
+      <Section><Label style={styles.title}>4. Audio output</Label>
         <Label accessibilityLiveRegion="polite">{describeOutput(output)}</Label>
         {!!output.connected.length && <Label style={styles.small}>Detected audio devices: {output.connected.map((item) => item.name).join(', ')}</Label>}
         <Label style={styles.small}>Pair headphones and choose audio output in phone settings. This is separate from the wearable BLE connection.</Label>
@@ -333,9 +302,9 @@ export default function Home() {
         {testedOutput === audioIdentity && confirmedOutput !== audioIdentity && <Button label="I heard the test audio" secondary onPress={() => setConfirmedOutput(audioIdentity)} />}
         {confirmedOutput === audioIdentity && <Label style={styles.small}>You confirmed the test was audible. This is a listening check, not automatic verification of the headphone route.</Label>}
       </Section>
-      <Section><Label style={styles.title}>6. Chat history</Label>
-        <Label style={styles.small}>Transcripts, your questions, and replies for the selected patient.</Label>
-        {!history.length && <Label style={styles.small}>{encounter ? 'No chat history for this patient in this session.' : 'Confirm a patient to view history and ask questions.'}</Label>}
+      <Section><Label style={styles.title}>5. Chat history</Label>
+        <Label style={styles.small}>Transcripts, your questions, and replies in this demo session.</Label>
+        {!history.length && <Label style={styles.small}>{conversationId ? 'No messages in this session yet.' : 'Start a session to view history and ask questions.'}</Label>}
         {history.map((turn) => <View key={turn.id} style={styles.turn}>
           <Label style={styles.patientName}>{turn.role === 'assistant' ? 'Reply' : turn.inputKind === 'wearable' ? 'Wearable transcript' : turn.inputKind === 'wearable-check' ? 'Wearable audio check (not transcribed)' : 'Phone question'}</Label>
           <Label>{turn.text}</Label>
@@ -344,9 +313,9 @@ export default function Home() {
         <Label style={styles.title}>Ask about chat history</Label>
         <Label style={styles.small}>Ask for a recap or find something mentioned earlier. You can ask here without the wearable connected.</Label>
         <TextInput accessibilityLabel="Question about chat history" value={question} onChangeText={setQuestion}
-          editable={!!encounter && !busy} multiline maxLength={500} style={styles.input}
+          editable={!!conversationId && !busy} multiline maxLength={500} style={styles.input}
           placeholder="What was said in the last recording?" placeholderTextColor="#666" />
-        <Button label="Ask question" disabled={!encounter || busy || !question.trim()} onPress={() => void ask()} />
+        <Button label="Ask question" disabled={!conversationId || busy || !question.trim()} onPress={() => void ask()} />
       </Section>
     <Label style={styles.small}>Replies play through this phone or its paired headphones.</Label>
     {Platform.OS === 'web' && <Label style={styles.small}>Browser preview audio plays on this computer.</Label>}
@@ -363,7 +332,7 @@ const styles = StyleSheet.create({
   small: { fontSize: 12, lineHeight: 19, color: '#555' }, section: { paddingVertical: 16, gap: 12, borderBottomWidth: 1, borderBottomColor: '#ccc' },
   button: { minHeight: 44, padding: 11, borderWidth: 1, borderColor: '#222', backgroundColor: '#222', justifyContent: 'center', alignItems: 'center', borderRadius: 2 },
   buttonText: { color: '#fff', fontWeight: '600', textAlign: 'center' }, secondary: { backgroundColor: '#fff', borderColor: '#888' }, secondaryText: { color: '#111' },
-  disabled: { opacity: 0.4 }, pressed: { opacity: 0.65 }, patient: { padding: 12, borderWidth: 1, borderColor: '#bbb', gap: 3 }, patientSelected: { borderColor: '#111', backgroundColor: '#f3f3f3' },
+  disabled: { opacity: 0.4 }, pressed: { opacity: 0.65 },
   patientName: { fontWeight: '700' }, input: { fontFamily, minHeight: 96, borderWidth: 1, borderColor: '#888', padding: 10, fontSize: 14, lineHeight: 22, color: '#111', textAlignVertical: 'top' },
   answer: { borderTopWidth: 1, borderTopColor: '#bbb', paddingTop: 16, gap: 12 }, turn: { gap: 6, borderLeftWidth: 2, borderLeftColor: '#aaa', paddingLeft: 12, paddingVertical: 6 }, error: { color: '#a00000' },
 });

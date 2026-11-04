@@ -11,12 +11,14 @@ PCB microphone -> ESP32-S3 -> BLE -> phone -> Python backend -> transcription / 
                                     phone -> speech -> phone speaker / paired headphones
 ```
 
-The UI is organized around backend/model connection, wearable connection, patient
-context, and conversation review. There are no simulated device-connection buttons.
+The UI is organized around backend/model connection, wearable connection, audio
+output and conversation review. There are no simulated device-connection buttons.
 It displays received transcripts, typed phone questions, replies, and sources.
 The **Chat history** section shows those messages. The **Ask about chat history**
-text box sends follow-ups using that patient's retained conversation as context.
-Typed follow-ups work without a connected wearable after a patient is confirmed.
+text box sends follow-ups using the session's retained conversation as context.
+Startup automatically selects the API's synthetic demo fixture internally; the
+patient picker and confirmation UI are temporarily removed. Typed follow-ups work
+without a connected wearable once automatic session setup succeeds.
 
 ## Start the backend and connect the app
 
@@ -46,8 +48,8 @@ An explicit `EXPO_PUBLIC_DEMO_MODE=true` build supports offline UI development.
 It is labelled demo mode and makes no server or LLM calls. This is a developer
 build setting, not a choice users must make each time they open the app.
 
-The normal flow is: open app -> session starts -> connect wearable -> confirm
-patient -> record or ask a question. Service failures show an error and Retry.
+The normal flow is: open app -> demo conversation starts -> connect wearable ->
+record or ask a question. Service failures show an error and Retry.
 Ending a session clears local context and allows starting another session at
 the same shared service. It does not expose or change hosting configuration.
 
@@ -90,8 +92,8 @@ SDK, the BLE library, permissions, throughput and headphone audio routing.
    It finds the advertised name `TIBBY_peripheral`, connects, and checks the expected
    notify characteristic. Scanning lasts six seconds. No bonding/device identity
    verification is implemented.
-3. Wait for the automatic backend session, select a sample patient, check both
-   identifiers, and confirm. Use Test audio to check the phone/headphone output.
+3. Wait for automatic demo-conversation setup. Use Test audio to check the
+   phone/headphone output. There is no patient selection step in this version.
 4. In default demo mode, tap **Test wearable audio round trip** to receive an audio
    receipt without transcription/AI. In NaviGator mode, tap **Record wearable
    audio**, then **Stop recording and send**. Capture also
@@ -112,17 +114,18 @@ these protocol improvements and wearable-button control remain firmware work.
 No reply audio is written to the wearable's `2A38` characteristic: that firmware
 only logs incoming writes and cannot play them.
 
-Changing patient, cancelling, disconnecting or backgrounding stops recording and
+Cancelling, ending the session, disconnecting or backgrounding stops recording and
 invalidates pending answers. Background/locked-phone streaming is not implemented.
 The app requests foreground BLE support only. Android 12+ requests scan/connect;
 older Android uses location permission as required for BLE discovery.
 
 ## Conversation and playback
 
-The backend stores the latest 40 messages per patient, in memory, until the one-hour
-session ends/expires or the process restarts. Changing patients never combines
-histories. Returning to the same patient reloads that patient's current-session
-history. This is not durable audio storage or an audit log. Raw audio is not saved.
+The backend stores the latest 40 messages in memory until the one-hour session
+ends/expires or the process restarts. The temporary UI uses one synthetic fixture
+per session. The API retains its context tokens and isolated histories; removing
+the picker does not bypass that contract. This is not durable audio storage or an
+audit log. Raw audio is not saved.
 
 A wearable transcript describes what the microphone captured; it does **not** prove
 who spoke. No speaker recognition/diarization is implemented. The conversation LLM

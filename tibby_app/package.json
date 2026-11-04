@@ -31,6 +31,7 @@
     "android": "expo start --dev-client --android",
     "ios": "expo start --dev-client --ios",
     "web": "expo start --web",
+    "build:web": "expo export --platform web",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "test": "node scripts/run-tests.mjs"

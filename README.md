@@ -8,7 +8,7 @@ repository. Continue app/backend development here after cloning it on another PC
 
 | Folder/file | Purpose |
 | --- | --- |
-| `tibby_app/` | Android/iPhone app: BLE, patient selection, chat history and follow-up questions |
+| `tibby_app/` | Android/iPhone app: BLE, automatic demo conversation, chat history and follow-up questions |
 | `tibby_backend/` | New Python/FastAPI API: sessions, audio transcription, Navigator calls and history |
 | `render.yaml` | Shared backend deployment definition |
 | `docs/firmware-compatibility.patch` | Small BLE packet-size fix to apply in the separate hardware repository |
@@ -36,6 +36,7 @@ Wearable microphone -> BLE -> phone app -> shared Python backend -> UF Navigator
 - **Local backend/API:** [Backend setup](tibby_backend/README.md).
 - **Shared hosting:** [Deployment setup](tibby_backend/DEPLOYMENT.md).
 - **First shared phone / PCB test:** [Demo walkthrough](DEMO_TEST.md).
+- **Share with home testers / host the website:** [Home demo guide](HOME_DEMO.md).
 
 The app automatically uses the shared prototype backend at
 `https://tibby-backend-9le6.onrender.com`. Users do not enter a backend address.
@@ -53,10 +54,11 @@ sections stay visible, with unavailable controls disabled, before backend startu
 The default hosted demo can acknowledge uploaded wearable audio without a model
 key; it explicitly does not transcribe or call AI. NaviGator mode enables those.
 
-Confirm a sample patient, then open **Chat history** to inspect wearable
-transcripts, phone questions and replies. **Ask about chat history** sends typed
-follow-ups using that patient's retained conversation. BLE does not need to stay
-connected for typed follow-ups. Phone speech playback is explicit.
+The app prepares one synthetic demo conversation automatically; there is no
+patient picker or confirmation step. **Chat history** shows wearable transcripts,
+phone questions and replies. **Ask about chat history** sends typed follow-ups
+using the current session's conversation. BLE does not need to stay connected for
+typed follow-ups. Phone speech playback is explicit.
 
 History is in memory, limited to 40 messages per patient/session and lost on server
 restart or session expiry/end. It is not permanent storage. A waveform transcript

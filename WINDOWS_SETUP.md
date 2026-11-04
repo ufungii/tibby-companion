@@ -68,7 +68,7 @@ EXPO_PUBLIC_DEMO_MODE=false
 npm run web
 ```
 
-The app opens its backend session automatically. Confirm a sample patient, review
+The app opens its demo conversation automatically. Review
 **Chat history**, and use **Ask about chat history**. Demo mode reports that no
 wearable speech exists rather than fabricating a recording.
 
