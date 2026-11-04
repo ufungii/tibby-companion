@@ -1,7 +1,10 @@
 # iPhone demo setup
 
 The Android APK does not install on iPhone. TIBBY's native BLE and audio-output
-modules require a custom iOS build; Expo Go does not contain them.
+modules require a custom iOS build; Expo Go does not contain them. Alternatively,
+the website now has an experimental Web Bluetooth adapter for Bluefy. See
+[the Bluefy setup steps](HOME_DEMO.md#try-the-pcb-on-iphone-through-bluefy).
+This avoids signing our own app, but physical PCB/audio validation is pending.
 
 The project has iOS code and a bundle identifier (`org.tibby.companion`), but no
 signed iPhone build has been produced or tested. Confirm the identifier with the
@@ -76,7 +79,8 @@ small fixed demo group; TestFlight avoids collecting device identifiers from tes
 
 Open **https://tibby-app.onrender.com** in Safari for the hosted interface, typed
 demo responses and playback controls. Adding the website to the Home Screen does
-not add TIBBY's native BLE adapter. It cannot test the PCB connection.
+not add TIBBY's native BLE adapter. Safari cannot test the PCB connection.
+Open the website inside Bluefy instead to try the experimental web BLE route.
 
 If a Mac becomes available, Xcode's free Personal Team signing supports limited
 personal-device testing, with provisioning expiring after seven days. That is a

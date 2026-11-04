@@ -1,7 +1,9 @@
-import type { Wearable } from './wearableTypes';
+import { pcmToWav } from './audio';
+import { createWebWearable } from './webBluetooth';
+import type { WebBluetooth } from './webBluetooth';
 
-export function createWearable(): Wearable {
-  const unavailable = () => { throw new Error('Wearable BLE requires the Android/iPhone development build on a physical phone. It is unavailable in the browser.'); };
-  return { available: false, scan: async () => unavailable(), connect: async () => unavailable(),
-    disconnect: async () => {}, capture: unavailable, destroy: async () => {} };
+export function createWearable() {
+  const bluetooth = typeof navigator !== 'undefined' && globalThis.isSecureContext
+    ? (navigator as Navigator & { bluetooth?: WebBluetooth }).bluetooth : undefined;
+  return createWebWearable(bluetooth, pcmToWav);
 }

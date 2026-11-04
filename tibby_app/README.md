@@ -57,8 +57,10 @@ Backend panel is removed; setup status and Retry remain visible when needed.
 ## Build for real BLE (Android and iPhone)
 
 Node.js 24 and npm are required. This app uses `react-native-ble-plx` with an Expo
-config plugin and a development client. **Expo Go and the browser cannot connect
-to the wearable.** They remain useful for the non-BLE interface.
+config plugin and a development client for native builds. **Expo Go and Safari
+cannot connect to the wearable.** The web adapter now uses Web Bluetooth where
+available (including Bluefy on iPhone and Chrome on Android). Physical browser
+BLE/audio testing is still pending; see [Bluefy setup](../HOME_DEMO.md#try-the-pcb-on-iphone-through-bluefy).
 
 ```sh
 npm ci

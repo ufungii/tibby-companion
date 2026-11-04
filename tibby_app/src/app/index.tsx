@@ -236,10 +236,10 @@ export default function Home() {
     {!!error && <Label accessibilityRole="alert" style={styles.error}>{error}</Label>}
     {!started && !starting && <Button label="Retry connection" secondary onPress={() => void startSession()} />}
     <Step number={1} title="Wearable" help={<>
-      <Label style={styles.small}>Keep the wearable nearby with Bluetooth enabled on the phone. Scan, then choose your TIBBY device.</Label>
-      {!wearable.available && <Label style={styles.small}>The website and Expo Go can demo the interface and replies. Connecting to the PCB requires the installed TIBBY phone app.</Label>}
+      <Label style={styles.small}>Keep the wearable nearby with Bluetooth enabled on the phone. Scan, choose TIBBY_peripheral in the device picker, then connect below. Disconnect any other phone or computer already using the board.</Label>
+      {!wearable.available && <Label style={styles.small}>On iPhone, open this website inside Bluefy and allow Bluetooth. Safari and Expo Go cannot connect to the PCB; an installed TIBBY app is another option.</Label>}
     </>}>
-      <Label accessibilityLiveRegion="polite">{wearable.available ? deviceStatus : 'Installed phone app required'}</Label>
+      <Label accessibilityLiveRegion="polite">{wearable.available ? deviceStatus : 'Bluetooth unavailable in this browser or preview'}</Label>
       {!device ? <Button label={deviceBusy ? 'Working...' : 'Scan for TIBBY'} disabled={deviceBusy || !wearable.available} onPress={() => void scan()} />
         : <Button label="Disconnect wearable" secondary onPress={() => void disconnect()} />}
       {devices.map((found) => <Button key={found.id} label={`Connect ${found.name} (${found.id.slice(-8)})`} disabled={deviceBusy} secondary onPress={() => void connect(found)} />)}

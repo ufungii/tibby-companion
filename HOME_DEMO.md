@@ -19,13 +19,14 @@ connection state, errors, actions, and replies remain visible. The interface use
 a restrained navy/teal palette and the phone's system font.
 
 The web version can demonstrate the backend, typed chat, and speech playback.
-It cannot connect to the PCB through our native BLE integration or detect the
-phone's headphone route. Pair headphones in phone settings and use Test audio.
+Safari cannot connect to the PCB. For an experimental website-to-PCB test, use
+Bluefy as described below. The web version cannot detect the phone's headphone route. Pair headphones in phone settings and use Test audio.
 The current backend returns demo replies; live AI/transcription is not configured.
 
 Expo Go is an optional developer preview, not a simpler sharing route: it needs
 Expo development setup and does not include our BLE or audio-route native modules.
-For a later PCB demo, use the installed Android build or a signed iPhone build.
+For PCB testing, use Bluefy with the web adapter, the installed Android build,
+or a signed iPhone build.
 The existing Android APK predates this theme; rebuild it to include these changes.
 
 ## Choose what they will test
@@ -34,7 +35,7 @@ The existing Android APK predates this theme; rebuild it to include these change
 | --- | --- | --- |
 | Android preview APK | Physical Android phone; install the TIBBY APK | Backend, chat, phone/headphone playback, PCB BLE when the board is nearby |
 | iPhone internal build / TestFlight | Signed iPhone build; appropriate Apple account/provisioning | Same phone features after iOS validation |
-| Hosted web app | Website URL and a browser | Backend connection, typed chat, visible replies and speech playback; not native PCB BLE |
+| Hosted web app | Website URL and a browser | Backend, typed chat and speech playback; BLE requires a Web Bluetooth browser such as Bluefy, not Safari |
 
 Most planned testers use iPhone. See [iPhone setup](IOS_SETUP.md): the team needs
 Apple signing/distribution access before an installable iPhone build can be shared.
@@ -45,6 +46,41 @@ computer to remain on. Expo Go is not the install path for the native BLE app.
 Expo Build compiles the phone app; it does not relay runtime conversations.
 The installed app talks directly to the shared Render backend over the internet.
 For a BLE test, the tester must have the powered PCB within range of their phone.
+
+## Try the PCB on iPhone through Bluefy
+
+Bluefy is a third-party iPhone browser with Web Bluetooth support. The website's
+Web Bluetooth adapter uses the same firmware name, service/characteristic UUIDs,
+and 16 kHz mono 16-bit PCM format as the native adapter. No Apple Developer
+membership or custom TIBBY installation is needed for this experiment.
+
+1. Install [Bluefy – Web BLE Browser by PNN SOFT](https://apps.apple.com/us/app/bluefy-web-ble-browser/id1492822055).
+2. Turn on Bluetooth, power the PCB running the microphone/BLE firmware, and keep
+   it nearby. Disconnect other apps/computers that are using the board.
+3. **Inside Bluefy**, open https://tibby-app.onrender.com over HTTPS. Allow Bluefy
+   Bluetooth access when asked. Safari and a Safari Home Screen shortcut do not
+   provide this bridge.
+4. Tap **Scan for TIBBY**, choose **TIBBY_peripheral** in the browser's picker,
+   then tap the **Connect** button shown in the page. Wait for Connected.
+5. Use **Test wearable audio round trip**, speak for a few seconds, then choose
+   **Stop recording and send**. A successful receipt confirms recorded WAV data
+   reached the server; in demo mode it does not transcribe or call AI.
+6. Pair headphones in iPhone settings, use **Test audio**, and play the response.
+   Check audibility yourself: the web page cannot verify the output route.
+
+Keep Bluefy open and the phone unlocked. Capture is limited to 30 seconds. The
+browser chooser selects one device; it is not a background scanner. If permission
+was denied, enable Bluefy Bluetooth access in iPhone settings and reload. If no
+board is listed, check its power, advertising name, firmware and other connections.
+
+Validation so far covers protocol/lifecycle tests and simulated browser BLE
+notifications sent to the real hosted audio-check API. Physical Bluefy/PCB audio
+throughput, completeness, sound quality and playback remain unverified. A receipt
+proves received bytes, not that no BLE packets were lost. Native builds remain
+available if the browser bridge does not sustain the required microphone stream.
+
+References: [Bluefy publisher](https://pnnsoft.com/portfolio/detail/bluefy-web-bluetooth-api-solution-for-ios-devices),
+[Web Bluetooth device selection](https://developer.mozilla.org/en-US/docs/Web/API/Bluetooth/requestDevice).
 
 ## Host the web interface on Render
 

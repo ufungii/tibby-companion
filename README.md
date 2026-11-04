@@ -32,7 +32,10 @@ Wearable microphone -> BLE -> phone app -> shared Python backend -> UF Navigator
 
 Browser demo: **https://tibby-app.onrender.com**. The public website-to-backend
 flow passed automatic setup, typed replies, history and session-cleanup checks.
-It requires no locally hosted app or backend.
+It requires no locally hosted app or backend. For experimental PCB access on
+iPhone without signing a custom app, open the website in Bluefy; see the
+[Bluefy test steps](HOME_DEMO.md#try-the-pcb-on-iphone-through-bluefy).
+Physical Bluefy/PCB validation is still pending.
 
 - **Windows:** [Windows setup](WINDOWS_SETUP.md).
 - **What to install:** [Installation checklist](INSTALL_CHECKLIST.md).
