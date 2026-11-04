@@ -13,6 +13,7 @@ repository. Continue app/backend development here after cloning it on another PC
 | `render.yaml` | Shared backend deployment definition |
 | `docs/firmware-compatibility.patch` | Small BLE packet-size fix to apply in the separate hardware repository |
 | `WINDOWS_SETUP.md` | Windows/PowerShell setup and moving between computers |
+| `INSTALL_CHECKLIST.md` | Required/optional installs plus the current machine audit |
 | `.github/workflows/checks.yml` | Windows/Linux app and backend checks |
 
 The original `tibby_fw_central/tibby_central.py` is a desktop program that receives
@@ -30,6 +31,7 @@ Wearable microphone -> BLE -> phone app -> shared Python backend -> UF Navigator
 ## Start here
 
 - **Windows:** [Windows setup](WINDOWS_SETUP.md).
+- **What to install:** [Installation checklist](INSTALL_CHECKLIST.md).
 - **App/native BLE:** [App setup](tibby_app/README.md).
 - **Local backend/API:** [Backend setup](tibby_backend/README.md).
 - **Shared hosting:** [Deployment setup](tibby_backend/DEPLOYMENT.md).

@@ -3,6 +3,10 @@
 Use PowerShell. The app, backend and deployment definition all live in this
 repository; the hardware repository is separate.
 
+For the complete required/optional software list, see
+[INSTALL_CHECKLIST.md](INSTALL_CHECKLIST.md). Local Android builds need JDK 17
+and Android Studio/SDK tools; cloud development builds are an alternative.
+
 ## 1. Install tools and clone
 
 Install Git for Windows, Node.js 24 LTS, and Python 3.12 (including the Windows
