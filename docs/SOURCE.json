@@ -1,0 +1,21 @@
+{
+  "sourceRepository": "git@github.com:jdados/tibby.git",
+  "sourceBranch": "app-prototype",
+  "sourceHeadCommit": "08e1b3a459b9f2dc9beab9d95399f58991c60018",
+  "includesUncommittedWorkingTreeChanges": true,
+  "preparedDate": "2026-11-04",
+  "included": [
+    "tibby_app",
+    "tibby_backend",
+    "render.yaml",
+    "firmware compatibility patch"
+  ],
+  "notIncluded": [
+    "legacy desktop script",
+    "PCB designs",
+    "old Git history",
+    "credentials",
+    "recordings",
+    "installed dependencies"
+  ]
+}

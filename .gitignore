@@ -1,0 +1,26 @@
+# Generated dependencies and build outputs
+node_modules/
+.venv/
+.expo/
+dist/
+web-build/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.log
+*.tsbuildinfo
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.mobileprovision
+
+# Generated native projects
+/tibby_app/android/
+/tibby_app/ios/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,153 @@
+# TIBBY phone companion
+
+The phone connects to the wearable over BLE and to a Python backend over HTTP(S).
+These are separate connections. BLE connection is not clinician authentication,
+backend login, or proof of device identity. This development version still uses
+anonymous demo sessions and a synthetic patient roster.
+
+```text
+PCB microphone -> ESP32-S3 -> BLE -> phone -> Python backend -> transcription / Navigator
+                                    phone <- transcript + reply + sources
+                                    phone -> speech -> phone speaker / paired headphones
+```
+
+The UI is organized around backend/model connection, wearable connection, patient
+context, and conversation review. There are no simulated device-connection buttons.
+It displays received transcripts, typed phone questions, replies, and sources.
+The **Chat history** section shows those messages. The **Ask about chat history**
+text box sends follow-ups using that patient's retained conversation as context.
+Typed follow-ups work without a connected wearable after a patient is confirmed.
+
+## Start the backend and connect the app
+
+The app now opens a session automatically with the team's configured server.
+Users do not enter a backend URL or choose a host. The team sets one stable HTTPS
+address in the app build environment:
+
+```text
+EXPO_PUBLIC_BACKEND_URL=https://YOUR_ASSIGNED_SERVICE_HOST
+EXPO_PUBLIC_DEMO_MODE=false
+```
+
+See [shared deployment setup](../tibby_backend/DEPLOYMENT.md). Until a real host is
+created and this value is configured, the app reports that the service is
+unavailable; it does not invent an endpoint or silently enter a demo. Reload/rebuild
+after changing build configuration. API keys stay on the server, never in
+`EXPO_PUBLIC_*` variables.
+
+For local development only, the same build setting can point at a reachable PC
+running the backend (`http://YOUR_PC_LAN_IP:8000`). A browser on that computer can
+use `http://127.0.0.1:8000`; a physical phone cannot. No address form is shown to
+users in either build. Campus client isolation can prevent local PC access.
+The host's CORS setting must match browser preview origins; native apps do not
+require CORS.
+
+An explicit `EXPO_PUBLIC_DEMO_MODE=true` build supports offline UI development.
+It is labelled demo mode and makes no server or LLM calls. This is a developer
+build setting, not a choice users must make each time they open the app.
+
+The normal flow is: open app -> session starts -> connect wearable -> confirm
+patient -> record or ask a question. Service failures show an error and Retry.
+Ending a session clears local context and allows starting another session at
+the same shared service. It does not expose or change hosting configuration.
+
+## Build for real BLE (Android and iPhone)
+
+Node.js 24 and npm are required. This app uses `react-native-ble-plx` with an Expo
+config plugin and a development client. **Expo Go and the browser cannot connect
+to the wearable.** They remain useful for the non-BLE interface.
+
+```sh
+npm ci
+# Android, with Android SDK/emulator or a connected Android phone:
+npx expo run:android
+# iPhone, on macOS with Xcode and an attached device:
+npx expo run:ios --device
+```
+
+An EAS development build is another option after the team configures its Expo
+project and Apple/Android signing:
+
+```sh
+npx eas-cli@latest build --profile development --platform android
+# or --platform ios
+npm start
+```
+
+`eas.json` contains a development profile. The app identifiers currently use
+`org.tibby.companion`; confirm them with the team before distribution. No cloud
+build or device installation has been performed here. Local iOS builds require
+macOS/Xcode. Physical Android/iPhone validation is still required for this Expo
+SDK, the BLE library, permissions, throughput and headphone audio routing.
+
+## Connect and record
+
+1. Flash the existing **BLE audio** peripheral firmware, not the optional Wi-Fi
+   test or the MAX9850 eval-board experiment. Populate/connect the board mic.
+2. In the development app, allow Bluetooth permissions and tap **Scan for TIBBY**.
+   It finds the advertised name `TIBBY_peripheral`, connects, and checks the expected
+   notify characteristic. Scanning lasts six seconds. No bonding/device identity
+   verification is implemented.
+3. Connect to the Python backend, select a sample patient, check both identifiers,
+   and confirm. Configure the backend with Navigator to enable transcription.
+4. Tap **Record wearable audio**, then **Stop recording and send**. Capture also
+   stops at 30 seconds of received samples. It is not an always-on microphone.
+5. Review the transcript/reply and ask a typed follow-up, such as
+   "What was said in the last recording?". Tap **Play latest reply** for phone TTS.
+
+The adapter subscribes to legacy service `180D`, notification characteristic
+`2A37` (expanded Bluetooth base UUIDs). Notifications are raw little-endian
+16 kHz mono 16-bit PCM. They are packaged into WAV and uploaded as base64 JSON to
+avoid native Blob/file interoperability problems. This protocol is read directly
+from the existing firmware. The firmware now preserves each 256-sample block and
+splits it into even-sized notifications using the negotiated ATT MTU. This C change
+has not been compiled here because ESP-IDF is unavailable; build/flash verification
+is required. The protocol has no packet sequence numbers, verified device
+identity, or recording acknowledgement. Packet loss cannot currently be detected;
+these protocol improvements and wearable-button control remain firmware work.
+No reply audio is written to the wearable's `2A38` characteristic: that firmware
+only logs incoming writes and cannot play them.
+
+Changing patient, cancelling, disconnecting or backgrounding stops recording and
+invalidates pending answers. Background/locked-phone streaming is not implemented.
+The app requests foreground BLE support only. Android 12+ requests scan/connect;
+older Android uses location permission as required for BLE discovery.
+
+## Conversation and playback
+
+The backend stores the latest 40 messages per patient, in memory, until the one-hour
+session ends/expires or the process restarts. Changing patients never combines
+histories. Returning to the same patient reloads that patient's current-session
+history. This is not durable audio storage or an audit log. Raw audio is not saved.
+
+A wearable transcript describes what the microphone captured; it does **not** prove
+who spoke. No speaker recognition/diarization is implemented. The conversation LLM
+uses only that patient's retained transcript/questions/replies. It does not gain
+access to a medical record by being connected to the app.
+
+Replies are generated as speech by `expo-speech` on the phone. Pair headphones
+with the phone in system settings. This app does not force an audio route. On iOS,
+silent mode can mute speech. Browser preview plays on the computer.
+
+## Validation
+
+```sh
+npm run typecheck
+npm run lint
+npm test
+npx expo export --platform all
+npx expo config --type introspect
+```
+
+Exports check JavaScript/Hermes bundling, and introspection checks generated native
+configuration. They do not prove native compilation or a successful BLE connection.
+Use physical devices for that. Tests cover HTTP/context isolation, cancellation
+and WAV construction; they do not simulate the physical Bluetooth radio.
+
+Dependency advisories remain in the Expo/native development dependency graph.
+Review `npm audit` before deployment; avoid forcing an incompatible Expo downgrade.
+Real clinician/device authentication, patient records, draft review/sign-off,
+production hosting and background operation remain separate milestones.
+
+References: [BLE library setup](https://github.com/dotintent/react-native-ble-plx),
+[Expo development builds](https://docs.expo.dev/develop/development-builds/introduction/).

@@ -1,0 +1,9 @@
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.zip binary
+
+# Unified diff context markers are required, not source whitespace errors.
+*.patch -whitespace

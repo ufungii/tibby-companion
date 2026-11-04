@@ -1,0 +1,64 @@
+# TIBBY Companion
+
+Phone app and application backend for the TIBBY wearable. This is an independent
+repository prepared from the `app-prototype` working tree of the team's hardware
+repository. Continue app/backend development here after cloning it on another PC.
+
+## What is in this repository?
+
+| Folder/file | Purpose |
+| --- | --- |
+| `tibby_app/` | Android/iPhone app: BLE, patient selection, chat history and follow-up questions |
+| `tibby_backend/` | New Python/FastAPI API: sessions, audio transcription, Navigator calls and history |
+| `render.yaml` | Shared backend deployment definition |
+| `docs/firmware-compatibility.patch` | Small BLE packet-size fix to apply in the separate hardware repository |
+| `WINDOWS_SETUP.md` | Windows/PowerShell setup and moving between computers |
+| `.github/workflows/checks.yml` | Windows/Linux app and backend checks |
+
+The original `tibby_fw_central/tibby_central.py` is a desktop program that receives
+BLE audio and plays replies on a PC. It was **not modified or copied here**.
+`tibby_backend/` is new application-server code for the phone workflow, rather than
+a replacement silently applied to that desktop program. PCB designs and firmware
+remain in the team's original repository. See [source notes](docs/SOURCE.json).
+
+```text
+Wearable microphone -> BLE -> phone app -> shared Python backend -> UF Navigator
+                               phone <- transcript + answer + sources
+                               phone -> speech -> phone / phone-paired headphones
+```
+
+## Start here
+
+- **Windows:** [Windows setup](WINDOWS_SETUP.md).
+- **App/native BLE:** [App setup](tibby_app/README.md).
+- **Local backend/API:** [Backend setup](tibby_backend/README.md).
+- **Shared hosting:** [Deployment setup](tibby_backend/DEPLOYMENT.md).
+
+The app automatically uses the service URL configured by the team at build time.
+Users do not enter a backend address. A developer sets `EXPO_PUBLIC_BACKEND_URL`;
+model keys belong only in the backend environment. No hosted backend has been
+created yet. The deployment files are prepared, not evidence of a live service.
+
+## Chat history
+
+Confirm a sample patient, then open **Chat history** to inspect wearable
+transcripts, phone questions and replies. **Ask about chat history** sends typed
+follow-ups using that patient's retained conversation. BLE does not need to stay
+connected for typed follow-ups. Phone speech playback is explicit.
+
+History is in memory, limited to 40 messages per patient/session and lost on server
+restart or session expiry/end. It is not permanent storage. A waveform transcript
+does not establish who spoke. Real clinician/device authentication, real patient
+records, durable storage and clinical deployment are not implemented.
+
+## Development status
+
+Local checks cover app types/lint, request/history isolation, WAV formatting,
+backend API behavior, browser interaction and container startup. Android/iPhone
+JavaScript bundles and native configuration were checked. Native compilation,
+physical BLE and live UF model access still need validation. Existing dependency
+advisories are documented in the app README. Use test patients and test speech.
+
+The new Git history deliberately excludes the old repository's historical code,
+local environment files, installed dependencies and sample recordings. Recreate
+`node_modules`/`.venv` on each computer using the committed lockfiles.

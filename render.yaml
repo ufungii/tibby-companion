@@ -1,0 +1,19 @@
+# Shared TEST-DATA prototype, not a clinical deployment.
+# Free instances sleep when idle; select a paid instance for always-on testing.
+services:
+  - type: web
+    name: tibby-backend
+    runtime: python
+    plan: free
+    rootDir: tibby_backend
+    buildCommand: pip install -r requirements.lock
+    startCommand: python -m uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.14
+      - key: TIBBY_PROVIDER
+        value: demo
+      - key: TIBBY_CORS_ORIGINS
+        value: ""

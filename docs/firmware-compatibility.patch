@@ -1,0 +1,105 @@
+diff --git a/tibby_fw_periph/main/include/gatt_svc.h b/tibby_fw_periph/main/include/gatt_svc.h
+index 8b07374..927ec65 100644
+--- a/tibby_fw_periph/main/include/gatt_svc.h
++++ b/tibby_fw_periph/main/include/gatt_svc.h
+@@ -15,6 +15,7 @@
+ #include "host/ble_gap.h"
+ 
+ /* Public function declarations */
++/* Sends a full int16 PCM block as MTU-sized notifications; errors can be partial. */
+ int send_audio_notification(const uint8_t *data, uint16_t len);
+ bool is_notify_enabled(void);
+ void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg);
+diff --git a/tibby_fw_periph/main/main.c b/tibby_fw_periph/main/main.c
+index e9d1597..7e6b0d9 100644
+--- a/tibby_fw_periph/main/main.c
++++ b/tibby_fw_periph/main/main.c
+@@ -118,7 +118,8 @@ void test_microphone(void)
+  */
+ static void audio_stream_task(void *param)
+ {
+-    uint8_t notify_buf[NOTIFY_MAX_BYTES];
++    /* Preserve every captured sample; GATT splits this block to the peer MTU. */
++    uint8_t notify_buf[MICROPHONE_SAMPLES * sizeof(uint16_t)];
+     ESP_LOGI(MIC_TAG, "Audio stream task started, waiting for subscriber...");
+ 
+     while (1) {
+@@ -137,7 +138,7 @@ static void audio_stream_task(void *param)
+ 
+             /* Convert to little-endian bytes and send as notification */
+             uint16_t bytes = 0;
+-            for (int i = 0; i < MICROPHONE_SAMPLES && bytes + 1 < NOTIFY_MAX_BYTES; i++) {
++            for (int i = 0; i < MICROPHONE_SAMPLES; i++) {
+                 notify_buf[bytes++] = (uint8_t)(microphone_data[i] & 0xFF);
+                 notify_buf[bytes++] = (uint8_t)((microphone_data[i] >> 8) & 0xFF);
+             }
+@@ -301,4 +302,4 @@ void app_main(void) {
+     /* Start NimBLE host task thread and return */
+     xTaskCreate(nimble_host_task, "NimBLE Host", 4*1024, NULL, 5, NULL);
+     return;
+-}
+\ No newline at end of file
++}
+diff --git a/tibby_fw_periph/main/src/gatt_svc.c b/tibby_fw_periph/main/src/gatt_svc.c
+index e22bf8c..2ce70d8 100644
+--- a/tibby_fw_periph/main/src/gatt_svc.c
++++ b/tibby_fw_periph/main/src/gatt_svc.c
+@@ -8,6 +8,7 @@
+ #include "common.h"
+ #include "heart_rate.h"
+ #include "led.h"
++#include "host/ble_att.h"
+ 
+ /* Private function declarations */
+ static int heart_rate_chr_access(uint16_t conn_handle, uint16_t attr_handle,
+@@ -80,22 +81,40 @@ static int tts_chr_access(uint16_t conn_handle, uint16_t attr_handle,
+ 
+ /* Public functions */
+ 
+-/* Send a notification with audio data. Returns 0 on success. */
++/* Send PCM as sample-aligned notifications within the negotiated ATT MTU. */
+ int send_audio_notification(const uint8_t *data, uint16_t len) {
+     if (!notify_enabled || !notify_conn_handle_inited) {
+         return -1;
+     }
+-    struct os_mbuf *om = ble_hs_mbuf_from_flat(data, len);
+-    if (om == NULL) {
+-        ESP_LOGE(TAG, "Failed to allocate mbuf for notification");
+-        return -1;
++    if (data == NULL || len == 0 || (len & 1)) {
++        return BLE_HS_EINVAL;
+     }
+-    int rc = ble_gatts_notify_custom(notify_conn_handle,
+-                                      heart_rate_chr_val_handle, om);
+-    if (rc != 0) {
+-        ESP_LOGE(TAG, "Notification failed: rc=%d", rc);
++    const uint16_t conn_handle = notify_conn_handle;
++    const uint16_t mtu = ble_att_mtu(conn_handle);
++    if (mtu < 5) {
++        return BLE_HS_ENOTCONN;
+     }
+-    return rc;
++    /* One ATT opcode byte + two handle bytes; keep int16 samples intact. */
++    const uint16_t max_payload = (mtu - 3) & ~1U;
++    for (uint16_t offset = 0; offset < len;) {
++        if (!notify_enabled || !notify_conn_handle_inited || notify_conn_handle != conn_handle) {
++            return BLE_HS_ENOTCONN;
++        }
++        uint16_t chunk = len - offset;
++        if (chunk > max_payload) chunk = max_payload;
++        struct os_mbuf *om = ble_hs_mbuf_from_flat(data + offset, chunk);
++        if (om == NULL) {
++            ESP_LOGE(TAG, "Failed to allocate mbuf for audio notification");
++            return BLE_HS_ENOMEM;
++        }
++        int rc = ble_gatts_notify_custom(conn_handle, heart_rate_chr_val_handle, om);
++        if (rc != 0) {
++            ESP_LOGE(TAG, "Audio notification failed: rc=%d", rc);
++            return rc;
++        }
++        offset += chunk;
++    }
++    return 0;
+ }
+ 
+ bool is_notify_enabled(void) {

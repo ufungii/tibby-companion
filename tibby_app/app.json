@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "TIBBY Companion",
+    "slug": "tibby-companion",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.tibby.companion",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Connect to the TIBBY development backend on your local network."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#f3f6f2",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "org.tibby.companion"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "neverForLocation": true,
+          "bluetoothAlwaysPermission": "Connect to the TIBBY wearable to receive microphone recordings."
+        }
+      ]
+    ],
+    "scheme": "tibby"
+  }
+}
