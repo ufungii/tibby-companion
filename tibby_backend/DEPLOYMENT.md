@@ -22,6 +22,10 @@ generated locally, not captured from the PCB. The service uses
 The app's `src/config.ts` uses this endpoint
 by default, with an optional `EXPO_PUBLIC_BACKEND_URL` override for developers.
 
+The hosted frontend is `https://tibby-app.onrender.com`. Its exact origin is
+allowed by the deployed backend configuration. The real public website passed
+automatic demo setup, typed replies and session cleanup on November 4, 2026.
+
 Render supports FastAPI web services and supplies an HTTPS `onrender.com` URL.
 The root `render.yaml` specifies a Python service, dependency lockfile, health
 endpoint and a single worker. It starts in deterministic demo mode, so no model

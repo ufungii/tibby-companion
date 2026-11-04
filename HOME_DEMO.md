@@ -22,8 +22,10 @@ For a BLE test, the tester must have the powered PCB within range of their phone
 
 The website has been created at **https://tibby-app.onrender.com**. Keep using
 this existing site; the creation instructions below are for setting up another
-deployment. The backend must run the current CORS configuration before the site
-can open conversations.
+deployment. The actual public site and backend passed a browser test on November
+4, 2026: automatic session setup, no patient picker, typed demo reply, visible
+playback controls, history and session cleanup. No local server or API request
+interception was used. Physical audibility and BLE were not tested.
 
 The existing backend remains `https://tibby-backend-9le6.onrender.com`.
 Create a separate **Static Site** for the frontend. The website then has its own
@@ -75,6 +77,11 @@ Play / replay response. Then share the website URL. The backend's primary URL is
 an API address; it does not currently serve the frontend website.
 
 ## Share a phone build
+
+The Android preview compiled successfully:
+[install/build page](https://expo.dev/accounts/wnhdkk/projects/tibby-companion/builds/548fafdf-691c-4fd3-941b-77be0f766f40).
+It contains the simplified startup from source commit `32554af`. Installation,
+physical BLE capture and headphone routing still require checks on a phone.
 
 Use the **preview** profile in `tibby_app/eas.json`. Its Android artifact is an APK
 with embedded JavaScript and the shared backend address:

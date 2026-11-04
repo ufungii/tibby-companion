@@ -30,8 +30,9 @@ Wearable microphone -> BLE -> phone app -> shared Python backend -> UF Navigator
 
 ## Start here
 
-Browser demo: **https://tibby-app.onrender.com**. The backend must deploy the
-website's allowed-origin configuration before browser conversations work.
+Browser demo: **https://tibby-app.onrender.com**. The public website-to-backend
+flow passed automatic setup, typed replies, history and session-cleanup checks.
+It requires no locally hosted app or backend.
 
 - **Windows:** [Windows setup](WINDOWS_SETUP.md).
 - **What to install:** [Installation checklist](INSTALL_CHECKLIST.md).
@@ -72,8 +73,9 @@ records, durable storage and clinical deployment are not implemented.
 
 Local checks cover app types/lint, request/history isolation, WAV formatting,
 backend API behavior, browser interaction and container startup. Android/iPhone
-JavaScript bundles and native configuration were checked. Native compilation,
-physical BLE and live UF model access still need validation. Existing dependency
+JavaScript bundles and native configuration were checked. The Android preview
+compiled successfully on Expo Build. iOS native compilation, physical BLE/audio
+and live UF model access still need validation. Existing dependency
 advisories are documented in the app README. Use test patients and test speech.
 
 The new Git history deliberately excludes the old repository's historical code,
