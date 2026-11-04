@@ -63,6 +63,7 @@ A developer can explicitly build the offline UI using
 | `GET /v1/encounters` | Returns the synthetic roster |
 | `PUT /v1/encounters/active` | Selects/clears an encounter and rotates its token |
 | `POST /v1/ask` | Record query, or conversation follow-up with `scope: "conversation"` |
+| `POST /v1/audio/check` | Validates base64 WAV and acknowledges duration/bytes; no transcription or model call |
 | `POST /v1/ask/audio` | Validates WAV, transcribes with Navigator, queries fixture |
 | `POST /v1/ask/audio/base64` | WAV transcription plus conversation reply, using JSON `{context, audioBase64}` |
 | `GET /v1/conversation` | Returns the active patient's latest 40 messages in this session |
@@ -120,7 +121,12 @@ The audio endpoint accepts the WAV bytes directly with `Content-Type: audio/wav`
 Put the same context JSON in the `X-Tibby-Context` header, not the URL. Uploads must
 be non-empty mono, 16-bit PCM at 16 kHz, at most 60 seconds. Empty/zero-signal,
 truncated, wrong-format and oversized inputs are rejected before transcription.
-In default demo mode, valid audio receives a clear 503 rather than a fake transcript.
+The transcription endpoints in default demo mode return 503 rather than a fake
+transcript. The app instead uses `/v1/audio/check` when session creation reports
+`audioMode: "check"`. This validates actual audio and returns a receipt labelled
+`provider: "connection-test"`, with no transcript. History uses `wearable-check`
+for these entries so they are never presented as captured words. NaviGator
+sessions report `audioMode: "transcription"` and use the transcription endpoint.
 The phone BLE adapter uses the base64 JSON endpoint for WAV uploads. Real Bluetooth
 operation still needs physical-phone validation. This endpoint defaults to
 conversation replies. Set `scope: "record"` for the separate synthetic record-query

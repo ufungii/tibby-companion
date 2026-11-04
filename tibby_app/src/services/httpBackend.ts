@@ -33,16 +33,17 @@ export function createHttpBackend(url: string, fetcher: Fetch = fetch): TibbyBac
   let selectionVersion = 0;
   let modelLabel = 'Not checked';
   let supportsAudio = false;
+  let audioMode: 'check' | 'transcription' = 'check';
 
   async function request(path: string, method: string, body?: unknown,
-    signal?: AbortSignal, token: string | null = sessionToken): Promise<unknown> {
+    signal?: AbortSignal, token: string | null = sessionToken, dispatched?: () => void): Promise<unknown> {
     const abort = new AbortController();
     const forwardAbort = () => abort.abort();
     signal?.addEventListener('abort', forwardAbort, { once: true });
     if (signal?.aborted) abort.abort();
     const timer = setTimeout(() => abort.abort(), path.includes('/audio') ? 120000 : 60000);
     try {
-      const response = await fetcher(`${baseUrl}${path}`, {
+      const pending = fetcher(`${baseUrl}${path}`, {
         method,
         headers: {
           ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
@@ -51,6 +52,8 @@ export function createHttpBackend(url: string, fetcher: Fetch = fetch): TibbyBac
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
         signal: abort.signal,
       });
+      dispatched?.();
+      const response = await pending;
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         const detail = object(payload).detail;
@@ -67,10 +70,11 @@ export function createHttpBackend(url: string, fetcher: Fetch = fetch): TibbyBac
     }
   }
 
-  async function submit(context: RequestContext, signal: AbortSignal, path: string, body: unknown): Promise<Answer> {
+  async function submit(context: RequestContext, signal: AbortSignal, path: string, body: unknown,
+    progress?: (phase: 'sending' | 'waiting') => void): Promise<Answer> {
     if (!sessionToken) throw new Error('Start a new session.');
     const currentGeneration = generation;
-    const value = object(await request(path, 'POST', body, signal));
+    const value = object(await request(path, 'POST', body, signal, sessionToken, () => progress?.('waiting')));
     const received = object(value.context);
     if (currentGeneration !== generation || signal.aborted || value.synthetic !== true ||
       received.requestId !== context.requestId || received.encounterId !== context.encounterId ||
@@ -91,6 +95,7 @@ export function createHttpBackend(url: string, fetcher: Fetch = fetch): TibbyBac
     label: baseUrl,
     get modelLabel() { return modelLabel; },
     get supportsAudio() { return supportsAudio; },
+    get audioMode() { return audioMode; },
     async start(signal) {
       if (!baseUrl) throw new Error('Service unavailable. This build has not been configured for the hosted service yet.');
       const parsed = new URL(baseUrl);
@@ -118,7 +123,8 @@ export function createHttpBackend(url: string, fetcher: Fetch = fetch): TibbyBac
         modelLabel = result.provider === 'navigator'
           ? `Navigator: ${typeof result.model === 'string' ? result.model : 'configured'} (configured; not yet verified)`
           : result.provider === 'demo' ? 'Demo provider — no LLM calls' : 'Model status unavailable';
-        supportsAudio = result.provider === 'navigator';
+        audioMode = result.audioMode === 'check' ? 'check' : 'transcription';
+        supportsAudio = result.audioMode === 'check' || result.provider === 'navigator';
         return encounters;
       } catch (error) {
         void request('/v1/sessions/current', 'DELETE', undefined, undefined, token).catch(() => undefined);
@@ -150,11 +156,14 @@ export function createHttpBackend(url: string, fetcher: Fetch = fetch): TibbyBac
         }
       }
     },
-    async ask(context: RequestContext, question, signal) {
-      return submit(context, signal, '/v1/ask', { context, question, scope: 'conversation' });
+    async ask(context: RequestContext, question, signal, progress) {
+      progress?.('sending');
+      return submit(context, signal, '/v1/ask', { context, question, scope: 'conversation' }, progress);
     },
-    async askAudio(context, audio, signal) {
-      return submit(context, signal, '/v1/ask/audio/base64', { context, audioBase64: fromByteArray(audio) });
+    async askAudio(context, audio, signal, progress) {
+      progress?.('sending');
+      return submit(context, signal, audioMode === 'check' ? '/v1/audio/check' : '/v1/ask/audio/base64',
+        { context, audioBase64: fromByteArray(audio) }, progress);
     },
     async history(encounterId, signal) {
       if (!sessionToken) throw new Error('Start a new session.');
@@ -165,7 +174,7 @@ export function createHttpBackend(url: string, fetcher: Fetch = fetch): TibbyBac
       }
       return value.messages.map((item): Turn => {
         const turn = object(item);
-        if (!['user', 'assistant'].includes(String(turn.role)) || !['typed', 'wearable'].includes(String(turn.inputKind))) {
+        if (!['user', 'assistant'].includes(String(turn.role)) || !['typed', 'wearable', 'wearable-check'].includes(String(turn.inputKind))) {
           throw new Error('Invalid conversation history.');
         }
         return { id: string(turn.id), role: turn.role as Turn['role'],

@@ -21,7 +21,12 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "org.tibby.companion"
+      "package": "org.tibby.companion",
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -37,6 +42,17 @@
         }
       ]
     ],
-    "scheme": "tibby"
+    "scheme": "tibby",
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "ea0f6763-49b7-4a0d-908f-d82ff066c72b"
+      }
+    },
+    "owner": "wnhdkk"
   }
 }

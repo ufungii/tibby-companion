@@ -1,0 +1,6 @@
+{
+  "name": "tibby-audio-output",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Phone audio output information for the TIBBY demo"
+}

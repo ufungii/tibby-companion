@@ -32,7 +32,7 @@ class Turn(Model):
     id: str
     role: Literal["user", "assistant"]
     text: str
-    inputKind: Literal["typed", "wearable"]
+    inputKind: Literal["typed", "wearable", "wearable-check"]
 
 
 class Source(Model):
@@ -65,6 +65,7 @@ class SessionResponse(Model):
     mode: Literal["synthetic"] = "synthetic"
     provider: str = "demo"
     model: str | None = None
+    audioMode: Literal["check", "transcription"] = "check"
 
 
 class Base64AudioRequest(Model):

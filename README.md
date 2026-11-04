@@ -35,6 +35,7 @@ Wearable microphone -> BLE -> phone app -> shared Python backend -> UF Navigator
 - **App/native BLE:** [App setup](tibby_app/README.md).
 - **Local backend/API:** [Backend setup](tibby_backend/README.md).
 - **Shared hosting:** [Deployment setup](tibby_backend/DEPLOYMENT.md).
+- **First shared phone / PCB test:** [Demo walkthrough](DEMO_TEST.md).
 
 The app automatically uses the service URL configured by the team at build time.
 Users do not enter a backend address. A developer sets `EXPO_PUBLIC_BACKEND_URL`;
@@ -42,6 +43,12 @@ model keys belong only in the backend environment. No hosted backend has been
 created yet. The deployment files are prepared, not evidence of a live service.
 
 ## Chat history
+
+The latest response and Play / replay controls appear above history. Audio output
+has a separate Test audio control and listening confirmation. Conversation
+sections stay visible, with unavailable controls disabled, before backend startup.
+The default hosted demo can acknowledge uploaded wearable audio without a model
+key; it explicitly does not transcribe or call AI. NaviGator mode enables those.
 
 Confirm a sample patient, then open **Chat history** to inspect wearable
 transcripts, phone questions and replies. **Ask about chat history** sends typed

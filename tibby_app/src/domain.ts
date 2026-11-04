@@ -25,7 +25,7 @@ export type Turn = {
   id: string;
   role: 'user' | 'assistant';
   text: string;
-  inputKind: 'typed' | 'wearable';
+  inputKind: 'typed' | 'wearable' | 'wearable-check';
 };
 
 /** Local stale-response guard. The real server must independently validate context. */

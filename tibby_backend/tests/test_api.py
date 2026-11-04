@@ -153,6 +153,36 @@ def test_wav_validation_and_demo_audio_is_not_faked():
             assert response.status_code == expected, response.text
 
 
+def test_audio_connection_check_returns_receipt_without_fabricating_transcript():
+    import base64
+
+    class NoTranscription(DemoProvider):
+        async def transcribe(self, audio):
+            raise AssertionError('Connection check must not invoke transcription')
+
+    with TestClient(create_app(NoTranscription())) as client:
+        headers = session(client)
+        token = select(client, headers)
+        payload = {'context': context(token), 'audioBase64': base64.b64encode(wav_data()).decode()}
+        result = client.post('/v1/audio/check', headers=headers, json=payload)
+        assert result.status_code == 200
+        body = result.json()
+        assert body['provider'] == 'connection-test'
+        assert body['transcript'] is None
+        assert '0.01 seconds' in body['text']
+        assert f'{len(wav_data())} bytes' in body['text']
+        assert 'Speech transcription and AI were not used' in body['text']
+        history = client.get('/v1/conversation', headers=headers).json()['messages']
+        assert history[0]['inputKind'] == 'wearable-check'
+        assert 'not transcribed' in history[0]['text']
+        assert client.post('/v1/audio/check', headers=headers, json=payload).status_code == 409
+        payload['context']['requestId'] = 2
+        payload['audioBase64'] = base64.b64encode(b'not wav').decode()
+        assert client.post('/v1/audio/check', headers=headers, json=payload).status_code == 422
+        other = session(client)
+        assert client.post('/v1/audio/check', headers=other, json=payload).status_code == 409
+
+
 def test_audio_pipeline_passes_transcript_into_record_query():
     class AudioProvider(DemoProvider):
         name = 'navigator'

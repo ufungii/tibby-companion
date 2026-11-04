@@ -120,7 +120,8 @@ def create_app(provider: Provider | None = None,
         token = secrets.token_urlsafe(32)
         sessions[token] = Session(expires=clock() + SESSION_SECONDS)
         return SessionResponse(sessionToken=token, expiresIn=SESSION_SECONDS,
-                               provider=provider.name, model=getattr(provider, "model", None))
+                               provider=provider.name, model=getattr(provider, "model", None),
+                               audioMode="check" if provider.name == "demo" else "transcription")
 
     @api.delete("/v1/sessions/current", status_code=204)
     async def end_session(session: Annotated[Session, Depends(get_session)]):
@@ -156,7 +157,7 @@ def create_app(provider: Provider | None = None,
         return {"encounterId": session.encounter_id,
                 "messages": session.histories.get(session.encounter_id, [])}
 
-    async def process_audio(session: Session, context: Context, audio: bytes, scope: str = "record") -> Answer:
+    def validate_audio(audio: bytes) -> int:
         if len(audio) > MAX_AUDIO_BYTES:
             raise HTTPException(413, "Recording exceeds the 60-second upload limit.")
         try:
@@ -171,6 +172,30 @@ def create_app(provider: Provider | None = None,
                     raise ValueError()
         except (wave.Error, EOFError, ValueError):
             raise HTTPException(422, "Expected non-empty 16 kHz mono 16-bit PCM WAV, up to 60 seconds.") from None
+        return frames
+
+    @api.post("/v1/audio/check", response_model=Answer)
+    async def check_audio(body: Base64AudioRequest, session: Annotated[Session, Depends(get_session)]):
+        begin_request(session, body.context)
+        try:
+            audio = base64.b64decode(body.audioBase64, validate=True)
+        except (ValueError, binascii.Error):
+            raise HTTPException(422, "Invalid base64 WAV data.") from None
+        frames = validate_audio(audio)
+        check_response(session, body.context)
+        receipt = f"Received {frames / 16000:.2f} seconds of wearable audio ({len(audio)} bytes)."
+        text = receipt + " Connection test complete. Speech transcription and AI were not used."
+        history = session.histories.setdefault(body.context.encounterId, [])
+        history.extend([
+            Turn(id=secrets.token_urlsafe(12), role="user", inputKind="wearable-check",
+                 text=receipt + " Audio was not transcribed."),
+            Turn(id=secrets.token_urlsafe(12), role="assistant", inputKind="wearable-check", text=text),
+        ])
+        session.histories[body.context.encounterId] = history[-40:]
+        return Answer(context=body.context, text=text, sources=[], provider="connection-test")
+
+    async def process_audio(session: Session, context: Context, audio: bytes, scope: str = "record") -> Answer:
+        validate_audio(audio)
         if provider.name == "demo":
             raise HTTPException(503, "Audio transcription requires Navigator mode; use text questions in demo mode.")
         try:

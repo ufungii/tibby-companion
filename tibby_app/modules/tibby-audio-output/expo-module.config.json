@@ -1,0 +1,5 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": { "modules": ["TibbyAudioOutputModule"] },
+  "android": { "modules": ["expo.modules.tibbyaudiooutput.TibbyAudioOutputModule"] }
+}

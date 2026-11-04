@@ -74,9 +74,11 @@ npx eas-cli@latest build --profile development --platform android
 npm start
 ```
 
-`eas.json` contains a development profile. The app identifiers currently use
-`org.tibby.companion`; confirm them with the team before distribution. No cloud
-build or device installation has been performed here. Local iOS builds require
+`eas.json` contains development and internal preview profiles. Preview Android
+builds produce an APK with embedded JavaScript, suitable for another tester
+without a Metro server. Configure the shared backend URL in the Expo preview
+environment first. See [the demo walkthrough](../DEMO_TEST.md).
+The app identifiers currently use `org.tibby.companion`. Local iOS builds require
 macOS/Xcode. Physical Android/iPhone validation is still required for this Expo
 SDK, the BLE library, permissions, throughput and headphone audio routing.
 
@@ -88,12 +90,14 @@ SDK, the BLE library, permissions, throughput and headphone audio routing.
    It finds the advertised name `TIBBY_peripheral`, connects, and checks the expected
    notify characteristic. Scanning lasts six seconds. No bonding/device identity
    verification is implemented.
-3. Connect to the Python backend, select a sample patient, check both identifiers,
-   and confirm. Configure the backend with Navigator to enable transcription.
-4. Tap **Record wearable audio**, then **Stop recording and send**. Capture also
+3. Wait for the automatic backend session, select a sample patient, check both
+   identifiers, and confirm. Use Test audio to check the phone/headphone output.
+4. In default demo mode, tap **Test wearable audio round trip** to receive an audio
+   receipt without transcription/AI. In NaviGator mode, tap **Record wearable
+   audio**, then **Stop recording and send**. Capture also
    stops at 30 seconds of received samples. It is not an always-on microphone.
 5. Review the transcript/reply and ask a typed follow-up, such as
-   "What was said in the last recording?". Tap **Play latest reply** for phone TTS.
+   "What was said in the last recording?". Tap **Play / replay response** for phone TTS.
 
 The adapter subscribes to legacy service `180D`, notification characteristic
 `2A37` (expanded Bluetooth base UUIDs). Notifications are raw little-endian
@@ -126,8 +130,21 @@ uses only that patient's retained transcript/questions/replies. It does not gain
 access to a medical record by being connected to the app.
 
 Replies are generated as speech by `expo-speech` on the phone. Pair headphones
-with the phone in system settings. This app does not force an audio route. On iOS,
-silent mode can mute speech. Browser preview plays on the computer.
+with the phone in system settings. The Audio output section includes Test audio
+and a listening confirmation. The local Expo module in `modules/tibby-audio-output`
+reports iOS's current AVAudioSession output; playback uses that app audio session.
+Android reports connected outputs and, on Android 13+, the system's anticipated
+media route. That is labelled **not verified for speech** because the TTS engine
+owns its playback track. Older Android/browser/older builds without the module
+show **Output not verified**. No device is invented and no headphone route is
+forced. Physical route/audibility testing is still required. Output changes reset
+the listening confirmation; detected headphone removal stops active playback.
+Browser preview plays on the computer and cannot detect its headphone route.
+
+Recording and response status is shown above the latest answer. Sending means
+request preparation/dispatch, not a verified completed upload. Waiting includes
+upload and server processing. Playing is shown only after speech's start callback.
+This is request/response behavior, not streamed speech or token delivery.
 
 ## Validation
 

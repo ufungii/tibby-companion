@@ -1,0 +1,23 @@
+# Expo receives only the phone app, not the backend, firmware notes or Git data.
+/*
+!/tibby_app/
+
+node_modules/
+.expo/
+dist/
+web-build/
+.env
+.env.*
+*.log
+*.tsbuildinfo
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*.mobileprovision
+credentials.json
+/tibby_app/android/
+/tibby_app/ios/
+.DS_Store
+Thumbs.db

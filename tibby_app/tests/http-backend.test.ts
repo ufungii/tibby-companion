@@ -101,3 +101,25 @@ test('an unconfigured build does not invent a server URL or silently enter demo 
   await assert.rejects(backend.start(new AbortController().signal), /not been configured/);
   assert.equal(called, false);
 });
+
+test('demo audio check sends real WAV bytes and progress without claiming transcription', async () => {
+  const phases: string[] = [];
+  const audio = new Uint8Array([82, 73, 70, 70, 1, 2]);
+  const backend = createHttpBackend('http://test', async (input, init) => {
+    if (String(input).endsWith('/sessions')) return Response.json({ sessionToken: 's', mode: 'synthetic', provider: 'demo', audioMode: 'check' });
+    if (String(input).endsWith('/encounters')) return Response.json([patient]);
+    assert.ok(String(input).endsWith('/v1/audio/check'));
+    const body = JSON.parse(String(init?.body));
+    assert.deepEqual(Buffer.from(body.audioBase64, 'base64'), Buffer.from(audio));
+    return Response.json({ context: body.context, text: 'Audio received; not transcribed.', transcript: null,
+      provider: 'connection-test', sources: [], synthetic: true });
+  });
+  const signal = new AbortController().signal;
+  await backend.start(signal);
+  assert.equal(backend.supportsAudio, true);
+  assert.equal(backend.audioMode, 'check');
+  const answer = await backend.askAudio({ requestId: 1, encounterId: patient.id, contextVersion: 1 }, audio, signal, (phase) => phases.push(phase));
+  assert.deepEqual(phases, ['sending', 'waiting']);
+  assert.equal(answer.transcript, null);
+  assert.equal(answer.provider, 'connection-test');
+});

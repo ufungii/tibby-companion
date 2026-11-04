@@ -11,11 +11,12 @@ export interface TibbyBackend {
   label: string;
   modelLabel: string;
   supportsAudio: boolean;
+  audioMode?: 'check' | 'transcription';
   start(signal: AbortSignal): Promise<Encounter[]>;
   selectEncounter(id: string | null, signal?: AbortSignal): Promise<string | undefined>;
   end(): Promise<void>;
-  ask(context: RequestContext, question: string, signal: AbortSignal): Promise<Answer>;
-  askAudio(context: RequestContext, audio: Uint8Array, signal: AbortSignal): Promise<Answer>;
+  ask(context: RequestContext, question: string, signal: AbortSignal, progress?: (phase: 'sending' | 'waiting') => void): Promise<Answer>;
+  askAudio(context: RequestContext, audio: Uint8Array, signal: AbortSignal, progress?: (phase: 'sending' | 'waiting') => void): Promise<Answer>;
   history(encounterId: string, signal: AbortSignal): Promise<Turn[]>;
 }
 
@@ -35,7 +36,8 @@ export const demoBackend: TibbyBackend = {
   async end() { demoHistory.clear(); },
   async history(id) { return [...(demoHistory.get(id) ?? [])]; },
   async askAudio() { throw new Error('Wearable transcription requires a Python backend configured with Navigator.'); },
-  async ask(context, question, signal) {
+  async ask(context, question, signal, progress) {
+    progress?.('waiting');
     await new Promise<void>((resolve, reject) => {
       const abort = () => {
         clearTimeout(timer);
