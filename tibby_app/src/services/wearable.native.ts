@@ -51,6 +51,7 @@ export function createWearable(): Wearable {
   }
 
   return {
+    available: Constants.executionEnvironment !== ExecutionEnvironment.StoreClient,
     async scan() {
       const current = ++generation;
       const activeManager = await ensureManager();

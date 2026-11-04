@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PropsWithChildren } from 'react';
-import { AppState, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import type { TextProps } from 'react-native';
+import { AppState, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import { createRequestGuard } from '../domain';
@@ -13,26 +11,14 @@ import { useAudioOutput } from '../hooks/useAudioOutput';
 import { describeOutput, outputIdentity } from '../services/audioOutputTypes';
 import { finishAudioPlayback, prepareAudioPlayback } from '../services/audioOutput';
 import { openDemoConversation } from '../services/demoSession';
+import { Button, Label, Step } from '../components/ui';
+import { theme } from '../theme';
 
 type Phase = 'idle' | 'recording' | 'sending' | 'waiting' | 'ready' | 'cancelled' | 'error';
 const phaseLabels: Record<Phase, string> = {
   idle: 'Ready to record or ask a question', recording: 'Recording', sending: 'Sending',
   waiting: 'Waiting for response', ready: 'Response ready', cancelled: 'Cancelled', error: 'Request failed',
 };
-
-function Label({ style, ...props }: TextProps) {
-  return <Text {...props} style={[styles.text, style]} />;
-}
-function Button({ label, onPress, disabled = false, secondary = false }: {
-  label: string; onPress: () => void; disabled?: boolean; secondary?: boolean;
-}) {
-  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled}
-    onPress={onPress} style={({ pressed }) => [styles.button, secondary && styles.secondary,
-      disabled && styles.disabled, pressed && !disabled && styles.pressed]}>
-    <Label style={[styles.buttonText, secondary && styles.secondaryText]}>{label}</Label>
-  </Pressable>;
-}
-function Section({ children }: PropsWithChildren) { return <View style={styles.section}>{children}</View>; }
 
 export default function Home() {
   const [started, setStarted] = useState(false);
@@ -240,88 +226,96 @@ export default function Home() {
   }
 
   return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-    <View style={styles.header}><Label style={styles.heading}>TIBBY</Label><Label>Connections and conversation</Label></View>
-    <Label accessibilityLiveRegion="polite" style={styles.small}>
-      {starting ? 'Connecting...' : error ? 'Needs attention' : started ? 'Ready' : 'Not connected'}
-    </Label>
-    <Label style={styles.small}>Prototype: test data only.</Label>
+    <View style={styles.header}>
+      <View><Label style={styles.heading}>Tibby</Label><Label style={styles.subtitle}>Companion</Label></View>
+      <Label accessibilityLiveRegion="polite" style={[styles.status, !!error && styles.statusError]}>
+        {starting ? 'Connecting...' : error ? 'Needs attention' : started ? 'Ready' : 'Not connected'}
+      </Label>
+    </View>
+    <Label style={styles.meta}>Research demo · test data only</Label>
     {!!error && <Label accessibilityRole="alert" style={styles.error}>{error}</Label>}
     {!started && !starting && <Button label="Retry connection" secondary onPress={() => void startSession()} />}
-    <Section>
-      <Label style={styles.title}>1. Wearable (BLE)</Label><Label>{deviceStatus}</Label>
-      <Label style={styles.small}>Keep the wearable nearby with Bluetooth enabled on this phone.</Label>
-      {!device ? <Button label={deviceBusy ? 'Working...' : 'Scan for TIBBY'} disabled={deviceBusy} onPress={() => void scan()} />
+    <Step number={1} title="Wearable" help={<>
+      <Label style={styles.small}>Keep the wearable nearby with Bluetooth enabled on the phone. Scan, then choose your TIBBY device.</Label>
+      {!wearable.available && <Label style={styles.small}>The website and Expo Go can demo the interface and replies. Connecting to the PCB requires the installed TIBBY phone app.</Label>}
+    </>}>
+      <Label accessibilityLiveRegion="polite">{wearable.available ? deviceStatus : 'Installed phone app required'}</Label>
+      {!device ? <Button label={deviceBusy ? 'Working...' : 'Scan for TIBBY'} disabled={deviceBusy || !wearable.available} onPress={() => void scan()} />
         : <Button label="Disconnect wearable" secondary onPress={() => void disconnect()} />}
       {devices.map((found) => <Button key={found.id} label={`Connect ${found.name} (${found.id.slice(-8)})`} disabled={deviceBusy} secondary onPress={() => void connect(found)} />)}
-      {Platform.OS === 'web' && <Label style={styles.small}>BLE is available only in the Android/iPhone development build, not this browser preview.</Label>}
-    </Section>
-      <Section><Label style={styles.title}>2. Recording and response</Label>
-        <Label accessibilityLiveRegion="polite" style={styles.patientName}>
+    </Step>
+    <Step number={2} title="Recording and response" help={<>
+      <Label style={styles.small}>Start a wearable recording, speak, then stop and send it. Recording starts only when you choose it.</Label>
+      <Label style={styles.small}>In connection-test mode, the reply confirms the duration and bytes received. It does not transcribe speech or call AI.</Label>
+      <Label style={styles.small}>When a reply is ready, read it here or use Play / replay response. Waiting includes upload and processing time.</Label>
+    </>}>
+        <Label accessibilityLiveRegion="polite" style={styles.emphasis}>
           {playback === 'starting' ? 'Preparing audio...' : playback === 'reply' && speaking ? 'Playing response' : phaseLabels[phase]}
         </Label>
         {!conversationId && <Label style={styles.small}>{starting ? 'Preparing conversation...' : 'Reconnect to record or ask questions.'}</Label>}
-        <Label style={styles.small}>Capture wearable speech, review its transcript and reply, then ask follow-up questions below. Recording is explicitly started here, not always on.</Label>
         {recording ? <><Label accessibilityLiveRegion="polite">Receiving audio: {seconds.toFixed(1)} seconds</Label>
           <Button label="Stop recording and send" onPress={() => capture.current?.stop()} /></>
           : <Button label={server.mode === 'check' ? 'Test wearable audio round trip' : 'Record wearable audio'} disabled={!device || !conversationId || busy || !server.audio} onPress={record} />}
-        {server.mode === 'check' && <Label style={styles.small}>Sends real recorded audio and reads back a receipt. This does not transcribe speech or call AI.</Label>}
+        {started && server.mode === 'check' && <Label style={styles.small}>Connection test · no transcription or AI</Label>}
         {!server.audio && <Label style={styles.small}>{started
           ? 'Recording is unavailable. Try a new conversation after the service has been updated.'
           : 'Waiting for a connection before sending a recording.'}</Label>}
-        {phase === 'waiting' && <Label style={styles.small}>Request sent. Upload or server processing may still be in progress.</Label>}
         {busy && <Button label="Cancel request" secondary onPress={() => { cancel(); setPhase('cancelled'); }} />}
         {answer && <View style={styles.answer}>
-          <Label style={styles.patientName}>Latest response</Label>
+          <Label style={styles.emphasis}>Latest response</Label>
           {answer.transcript && <><Label style={styles.small}>Wearable transcript</Label><Label>{answer.transcript}</Label></>}
           <Label selectable>{answer.text}</Label>
           <Label style={styles.small}>{answer.provider === 'navigator' ? 'Navigator LLM' : answer.provider === 'connection-test' ? 'Audio connection receipt — no transcription or AI' : 'Demo reply — no AI'}</Label>
           <Button label={playback === 'reply' || playback === 'starting' ? 'Stop playback' : 'Play / replay response'}
             onPress={() => playback !== 'idle' ? stopPlayback() : void playAudio()} />
-          {answer.sources.map((source) => <View key={source.title}><Label style={styles.patientName}>{source.title}</Label><Label style={styles.small}>{source.detail}</Label></View>)}
+          {answer.sources.map((source) => <View key={source.title}><Label style={styles.emphasis}>{source.title}</Label><Label style={styles.small}>{source.detail}</Label></View>)}
         </View>}
-      </Section>
-      <Section><Label style={styles.title}>3. Audio output</Label>
+    </Step>
+    <Step number={3} title="Audio output" help={<>
+      <Label style={styles.small}>Pair headphones and select audio output in phone settings. This connection is separate from the wearable.</Label>
+      <Label style={styles.small}>Use Test audio to check audibility. A detected or connected device does not prove where speech is playing.</Label>
+      {Platform.OS === 'web' && <Label style={styles.small}>Browser audio uses the output selected on your device. Headphone-route detection is unavailable in this web demo.</Label>}
+      {Platform.OS === 'ios' && <Label style={styles.small}>If speech is muted, check the phone volume and silent mode.</Label>}
+    </>}>
         <Label accessibilityLiveRegion="polite">{describeOutput(output)}</Label>
         {!!output.connected.length && <Label style={styles.small}>Detected audio devices: {output.connected.map((item) => item.name).join(', ')}</Label>}
-        <Label style={styles.small}>Pair headphones and choose audio output in phone settings. This is separate from the wearable BLE connection.</Label>
-        {Platform.OS === 'web' && <Label style={styles.small}>Browser preview uses the computer audio output; headphone detection is unavailable here.</Label>}
         <Button label={playback !== 'idle' ? 'Stop audio' : 'Test audio'}
           disabled={recording} onPress={() => playback !== 'idle' ? stopPlayback() : void playAudio(true)} secondary />
         {testedOutput === audioIdentity && confirmedOutput !== audioIdentity && <Button label="I heard the test audio" secondary onPress={() => setConfirmedOutput(audioIdentity)} />}
         {confirmedOutput === audioIdentity && <Label style={styles.small}>You confirmed the test was audible. This is a listening check, not automatic verification of the headphone route.</Label>}
-      </Section>
-      <Section><Label style={styles.title}>4. Chat history</Label>
+    </Step>
+    <Step number={4} title="Chat history" help={<>
+      <Label style={styles.small}>Review transcripts, your questions and replies, or ask a follow-up without connecting the wearable.</Label>
+      <Label style={styles.small}>New conversation clears this chat and starts fresh. The server keeps only the latest 40 messages for the current session.</Label>
+      <Label style={styles.small}>A microphone recording captures speech; it does not verify who spoke.</Label>
+    </>}>
         <Button label="New conversation" secondary disabled={starting || busy} onPress={newConversation} />
-        <Label style={styles.small}>Transcripts, your questions, and replies in this demo session.</Label>
         {!history.length && <Label style={styles.small}>{conversationId ? 'No messages in this conversation yet.' : 'Waiting for a connection.'}</Label>}
         {history.map((turn) => <View key={turn.id} style={styles.turn}>
-          <Label style={styles.patientName}>{turn.role === 'assistant' ? 'Reply' : turn.inputKind === 'wearable' ? 'Wearable transcript' : turn.inputKind === 'wearable-check' ? 'Wearable audio check (not transcribed)' : 'Phone question'}</Label>
+          <Label style={styles.emphasis}>{turn.role === 'assistant' ? 'Reply' : turn.inputKind === 'wearable' ? 'Wearable transcript' : turn.inputKind === 'wearable-check' ? 'Wearable audio check (not transcribed)' : 'Phone question'}</Label>
           <Label>{turn.text}</Label>
         </View>)}
-        <Label style={styles.small}>A wearable recording does not prove who spoke. History is retained only for this server session (latest 40 messages).</Label>
-        <Label style={styles.title}>Ask about chat history</Label>
-        <Label style={styles.small}>Ask for a recap or find something mentioned earlier. You can ask here without the wearable connected.</Label>
+        <Label style={styles.fieldLabel}>Ask about this conversation</Label>
         <TextInput accessibilityLabel="Question about chat history" value={question} onChangeText={setQuestion}
-          editable={!!conversationId && !busy} multiline maxLength={500} style={styles.input}
-          placeholder="What was said in the last recording?" placeholderTextColor="#666" />
+          editable={!!conversationId && !busy} multiline maxLength={500} style={styles.input} keyboardAppearance="dark"
+          placeholder="What was said in the last recording?" placeholderTextColor={theme.muted} />
         <Button label="Ask question" disabled={!conversationId || busy || !question.trim()} onPress={() => void ask()} />
-      </Section>
-    <Label style={styles.small}>Replies play through this phone or its paired headphones.</Label>
-    {Platform.OS === 'web' && <Label style={styles.small}>Browser preview audio plays on this computer.</Label>}
-    {Platform.OS === 'ios' && <Label style={styles.small}>If speech is muted, turn off silent mode.</Label>}
+    </Step>
   </ScrollView></SafeAreaView>;
 }
-const fontFamily = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
-  page: { width: '100%', maxWidth: 640, alignSelf: 'center', padding: 20, paddingBottom: 40, gap: 12 },
-  text: { fontFamily, color: '#111', fontSize: 14, lineHeight: 22 },
-  header: { borderBottomWidth: 1, borderBottomColor: '#aaa', paddingBottom: 12, gap: 4 },
-  heading: { fontSize: 22, lineHeight: 30, fontWeight: '700' }, title: { fontSize: 16, lineHeight: 24, fontWeight: '700' },
-  small: { fontSize: 12, lineHeight: 19, color: '#555' }, section: { paddingVertical: 16, gap: 12, borderBottomWidth: 1, borderBottomColor: '#ccc' },
-  button: { minHeight: 44, padding: 11, borderWidth: 1, borderColor: '#222', backgroundColor: '#222', justifyContent: 'center', alignItems: 'center', borderRadius: 2 },
-  buttonText: { color: '#fff', fontWeight: '600', textAlign: 'center' }, secondary: { backgroundColor: '#fff', borderColor: '#888' }, secondaryText: { color: '#111' },
-  disabled: { opacity: 0.4 }, pressed: { opacity: 0.65 },
-  patientName: { fontWeight: '700' }, input: { fontFamily, minHeight: 96, borderWidth: 1, borderColor: '#888', padding: 10, fontSize: 14, lineHeight: 22, color: '#111', textAlignVertical: 'top' },
-  answer: { borderTopWidth: 1, borderTopColor: '#bbb', paddingTop: 16, gap: 12 }, turn: { gap: 6, borderLeftWidth: 2, borderLeftColor: '#aaa', paddingLeft: 12, paddingVertical: 6 }, error: { color: '#a00000' },
+  safe: { flex: 1, backgroundColor: theme.background },
+  page: { width: '100%', maxWidth: 720, alignSelf: 'center', padding: 22, paddingBottom: 44 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, paddingBottom: 16 },
+  heading: { fontSize: 28, lineHeight: 36, fontWeight: '700', letterSpacing: -0.6 },
+  subtitle: { fontSize: 13, color: theme.muted },
+  status: { color: theme.accent, fontSize: 13, fontWeight: '500' }, statusError: { color: theme.error },
+  meta: { fontSize: 12, lineHeight: 20, color: theme.muted, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: theme.border },
+  small: { fontSize: 13, lineHeight: 20, color: theme.muted }, emphasis: { fontWeight: '600' },
+  fieldLabel: { fontSize: 13, color: theme.muted, paddingTop: 8 },
+  input: { fontFamily: theme.font, minHeight: 100, borderWidth: 1, borderColor: theme.border, borderRadius: 4,
+    backgroundColor: theme.surface, padding: 12, fontSize: 16, lineHeight: 24, color: theme.text, textAlignVertical: 'top' },
+  answer: { borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 16, gap: 12 },
+  turn: { gap: 6, borderLeftWidth: 2, borderLeftColor: theme.border, paddingLeft: 12, paddingVertical: 6 },
+  error: { color: theme.error, borderLeftWidth: 2, borderLeftColor: theme.error, paddingLeft: 12, marginVertical: 16 },
 });

@@ -6,6 +6,28 @@ and conversation history. This is a synthetic demo, not real patient selection.
 The Backend panel and manual End session button are removed; use New conversation
 in chat history to start fresh. Connection setup and cleanup are automatic.
 
+## Simplest iPhone demo for now
+
+Open **https://tibby-app.onrender.com** in Safari. Use Share > Add to Home Screen
+(and Open as Web App if offered) for an app-like entry. No Expo Go, Apple developer
+membership, or running developer computer is needed for this hosted web demo.
+The website provides a home-screen icon and standalone display metadata. It still
+needs internet; no offline caching or background recording has been added.
+
+Step headings have an arrow to show or hide instructions. They start collapsed;
+connection state, errors, actions, and replies remain visible. The interface uses
+a restrained navy/teal palette and the phone's system font.
+
+The web version can demonstrate the backend, typed chat, and speech playback.
+It cannot connect to the PCB through our native BLE integration or detect the
+phone's headphone route. Pair headphones in phone settings and use Test audio.
+The current backend returns demo replies; live AI/transcription is not configured.
+
+Expo Go is an optional developer preview, not a simpler sharing route: it needs
+Expo development setup and does not include our BLE or audio-route native modules.
+For a later PCB demo, use the installed Android build or a signed iPhone build.
+The existing Android APK predates this theme; rebuild it to include these changes.
+
 ## Choose what they will test
 
 | Version | Tester needs | Can test |

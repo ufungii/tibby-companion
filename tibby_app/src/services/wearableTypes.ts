@@ -6,6 +6,7 @@ export type CaptureCallbacks = {
   error(error: Error): void;
 };
 export interface Wearable {
+  available: boolean;
   scan(): Promise<WearableDevice[]>;
   connect(id: string, onDisconnect: () => void): Promise<void>;
   disconnect(): Promise<void>;
