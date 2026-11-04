@@ -36,7 +36,7 @@ function Section({ children }: PropsWithChildren) { return <View style={styles.s
 
 export default function Home() {
   const [started, setStarted] = useState(false);
-  const [server, setServer] = useState({ audio: false, mode: 'check', model: 'Not connected' });
+  const [server, setServer] = useState({ audio: false, mode: 'check' });
   const [starting, setStarting] = useState(true);
   const [devices, setDevices] = useState<WearableDevice[]>([]);
   const [device, setDevice] = useState<WearableDevice | null>(null);
@@ -80,7 +80,7 @@ export default function Home() {
       if (alive.current && version === operation.current) {
         guard.current.setEncounter(conversation.id, conversation.token);
         setConversationId(conversation.id); setHistory(conversation.history); setStarted(true);
-        setServer({ audio: api.current.supportsAudio, mode: api.current.audioMode ?? 'transcription', model: api.current.modelLabel });
+        setServer({ audio: api.current.supportsAudio, mode: api.current.audioMode ?? 'transcription' });
       }
     } catch (cause) {
       if (alive.current && version === operation.current) {
@@ -234,52 +234,40 @@ export default function Home() {
           onError: () => { finish(); if (current()) setError('Playback failed. Check phone audio output.'); } });
     } catch { if (current()) { setSpeaking(false); setPlayback('idle'); setError('Playback unavailable.'); void finishAudioPlayback().catch(() => undefined); } }
   }
-  function endSession() {
-    cancel(); operation.current += 1; setupController.current?.abort(); guard.current.setEncounter(null);
-    setConversationId(null); setHistory([]); setStarted(false); setQuestion('');
-    void api.current.end().catch(() => { if (alive.current) setError('Local session ended. Server revocation failed; the server session will expire.'); });
-    void disconnect().catch(() => undefined);
+  function newConversation() {
+    cancel(); setQuestion('');
+    void startSession();
   }
 
   return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
     <View style={styles.header}><Label style={styles.heading}>TIBBY</Label><Label>Connections and conversation</Label></View>
-    <Label style={styles.small}>Prototype: test data only. No clinician or wearable identity authentication yet.</Label>
+    <Label accessibilityLiveRegion="polite" style={styles.small}>
+      {starting ? 'Connecting...' : error ? 'Needs attention' : started ? 'Ready' : 'Not connected'}
+    </Label>
+    <Label style={styles.small}>Prototype: test data only.</Label>
     {!!error && <Label accessibilityRole="alert" style={styles.error}>{error}</Label>}
+    {!started && !starting && <Button label="Retry connection" secondary onPress={() => void startSession()} />}
     <Section>
-      <Label style={styles.title}>1. Backend</Label>
-      {!started ? <>
-        <Label>{starting ? 'Preparing your session...' : 'Session not active.'}</Label>
-        <Button label={starting ? 'Connecting...' : error ? 'Retry' : 'Start session'} disabled={starting} onPress={() => void startSession()} />
-      </> : <>
-        <Label>Session active</Label>
-        <Label style={styles.small}>{server.model}</Label>
-        {server.mode === 'check' && <Label style={styles.small}>{server.audio
-          ? 'Audio connection test available. Transcription and AI replies are not configured.'
-          : 'Backend online. Recording checks require the latest backend deployment.'}</Label>}
-        <Button label="End session" secondary onPress={endSession} />
-      </>}
-    </Section>
-    <Section>
-      <Label style={styles.title}>2. Wearable (BLE)</Label><Label>{deviceStatus}</Label>
-      <Label style={styles.small}>The phone connects directly to the wearable. The backend does not establish the BLE connection.</Label>
+      <Label style={styles.title}>1. Wearable (BLE)</Label><Label>{deviceStatus}</Label>
+      <Label style={styles.small}>Keep the wearable nearby with Bluetooth enabled on this phone.</Label>
       {!device ? <Button label={deviceBusy ? 'Working...' : 'Scan for TIBBY'} disabled={deviceBusy} onPress={() => void scan()} />
         : <Button label="Disconnect wearable" secondary onPress={() => void disconnect()} />}
       {devices.map((found) => <Button key={found.id} label={`Connect ${found.name} (${found.id.slice(-8)})`} disabled={deviceBusy} secondary onPress={() => void connect(found)} />)}
       {Platform.OS === 'web' && <Label style={styles.small}>BLE is available only in the Android/iPhone development build, not this browser preview.</Label>}
     </Section>
-      <Section><Label style={styles.title}>3. Recording and response</Label>
+      <Section><Label style={styles.title}>2. Recording and response</Label>
         <Label accessibilityLiveRegion="polite" style={styles.patientName}>
           {playback === 'starting' ? 'Preparing audio...' : playback === 'reply' && speaking ? 'Playing response' : phaseLabels[phase]}
         </Label>
-        {!conversationId && <Label style={styles.small}>{starting ? 'Preparing demo conversation...' : 'Start a session to record or ask questions.'}</Label>}
+        {!conversationId && <Label style={styles.small}>{starting ? 'Preparing conversation...' : 'Reconnect to record or ask questions.'}</Label>}
         <Label style={styles.small}>Capture wearable speech, review its transcript and reply, then ask follow-up questions below. Recording is explicitly started here, not always on.</Label>
         {recording ? <><Label accessibilityLiveRegion="polite">Receiving audio: {seconds.toFixed(1)} seconds</Label>
           <Button label="Stop recording and send" onPress={() => capture.current?.stop()} /></>
           : <Button label={server.mode === 'check' ? 'Test wearable audio round trip' : 'Record wearable audio'} disabled={!device || !conversationId || busy || !server.audio} onPress={record} />}
         {server.mode === 'check' && <Label style={styles.small}>Sends real recorded audio and reads back a receipt. This does not transcribe speech or call AI.</Label>}
         {!server.audio && <Label style={styles.small}>{started
-          ? 'Recording is unavailable on this backend version. After the server update, end this session and start a new one.'
-          : 'Connect to the backend before sending a recording.'}</Label>}
+          ? 'Recording is unavailable. Try a new conversation after the service has been updated.'
+          : 'Waiting for a connection before sending a recording.'}</Label>}
         {phase === 'waiting' && <Label style={styles.small}>Request sent. Upload or server processing may still be in progress.</Label>}
         {busy && <Button label="Cancel request" secondary onPress={() => { cancel(); setPhase('cancelled'); }} />}
         {answer && <View style={styles.answer}>
@@ -292,7 +280,7 @@ export default function Home() {
           {answer.sources.map((source) => <View key={source.title}><Label style={styles.patientName}>{source.title}</Label><Label style={styles.small}>{source.detail}</Label></View>)}
         </View>}
       </Section>
-      <Section><Label style={styles.title}>4. Audio output</Label>
+      <Section><Label style={styles.title}>3. Audio output</Label>
         <Label accessibilityLiveRegion="polite">{describeOutput(output)}</Label>
         {!!output.connected.length && <Label style={styles.small}>Detected audio devices: {output.connected.map((item) => item.name).join(', ')}</Label>}
         <Label style={styles.small}>Pair headphones and choose audio output in phone settings. This is separate from the wearable BLE connection.</Label>
@@ -302,9 +290,10 @@ export default function Home() {
         {testedOutput === audioIdentity && confirmedOutput !== audioIdentity && <Button label="I heard the test audio" secondary onPress={() => setConfirmedOutput(audioIdentity)} />}
         {confirmedOutput === audioIdentity && <Label style={styles.small}>You confirmed the test was audible. This is a listening check, not automatic verification of the headphone route.</Label>}
       </Section>
-      <Section><Label style={styles.title}>5. Chat history</Label>
+      <Section><Label style={styles.title}>4. Chat history</Label>
+        <Button label="New conversation" secondary disabled={starting || busy} onPress={newConversation} />
         <Label style={styles.small}>Transcripts, your questions, and replies in this demo session.</Label>
-        {!history.length && <Label style={styles.small}>{conversationId ? 'No messages in this session yet.' : 'Start a session to view history and ask questions.'}</Label>}
+        {!history.length && <Label style={styles.small}>{conversationId ? 'No messages in this conversation yet.' : 'Waiting for a connection.'}</Label>}
         {history.map((turn) => <View key={turn.id} style={styles.turn}>
           <Label style={styles.patientName}>{turn.role === 'assistant' ? 'Reply' : turn.inputKind === 'wearable' ? 'Wearable transcript' : turn.inputKind === 'wearable-check' ? 'Wearable audio check (not transcribed)' : 'Phone question'}</Label>
           <Label>{turn.text}</Label>

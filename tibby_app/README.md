@@ -50,8 +50,9 @@ build setting, not a choice users must make each time they open the app.
 
 The normal flow is: open app -> demo conversation starts -> connect wearable ->
 record or ask a question. Service failures show an error and Retry.
-Ending a session clears local context and allows starting another session at
-the same shared service. It does not expose or change hosting configuration.
+New conversation clears chat/context and automatically starts a fresh session
+at the same shared service, without disconnecting the wearable. The technical
+Backend panel is removed; setup status and Retry remain visible when needed.
 
 ## Build for real BLE (Android and iPhone)
 
@@ -83,6 +84,9 @@ environment first. See [the demo walkthrough](../DEMO_TEST.md).
 The app identifiers currently use `org.tibby.companion`. Local iOS builds require
 macOS/Xcode. Physical Android/iPhone validation is still required for this Expo
 SDK, the BLE library, permissions, throughput and headphone audio routing.
+
+The `testflight` profile prepares a store-distribution iOS build. Signing and
+submission need Apple Developer/App Store Connect access; see [iPhone setup](../IOS_SETUP.md).
 
 ## Connect and record
 

@@ -41,6 +41,7 @@ It requires no locally hosted app or backend.
 - **Shared hosting:** [Deployment setup](tibby_backend/DEPLOYMENT.md).
 - **First shared phone / PCB test:** [Demo walkthrough](DEMO_TEST.md).
 - **Share with home testers / host the website:** [Home demo guide](HOME_DEMO.md).
+- **iPhone installation and Apple account requirements:** [iOS setup](IOS_SETUP.md).
 
 The app automatically uses the shared prototype backend at
 `https://tibby-backend-9le6.onrender.com`. Users do not enter a backend address.
@@ -55,6 +56,9 @@ still need validation.
 The latest response and Play / replay controls appear above history. Audio output
 has a separate Test audio control and listening confirmation. Conversation
 sections stay visible, with unavailable controls disabled, before backend startup.
+The technical Backend panel is removed. A compact status shows connection/setup
+state, Retry appears when setup fails, and New conversation resets chat while
+preserving the wearable connection.
 The default hosted demo can acknowledge uploaded wearable audio without a model
 key; it explicitly does not transcribe or call AI. NaviGator mode enables those.
 

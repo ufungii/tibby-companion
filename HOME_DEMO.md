@@ -3,6 +3,8 @@
 The prototype now opens a demo conversation automatically. It has no patient
 selection/confirmation screen. Each app session still gets its own server token
 and conversation history. This is a synthetic demo, not real patient selection.
+The Backend panel and manual End session button are removed; use New conversation
+in chat history to start fresh. Connection setup and cleanup are automatic.
 
 ## Choose what they will test
 
@@ -11,6 +13,10 @@ and conversation history. This is a synthetic demo, not real patient selection.
 | Android preview APK | Physical Android phone; install the TIBBY APK | Backend, chat, phone/headphone playback, PCB BLE when the board is nearby |
 | iPhone internal build / TestFlight | Signed iPhone build; appropriate Apple account/provisioning | Same phone features after iOS validation |
 | Hosted web app | Website URL and a browser | Backend connection, typed chat, visible replies and speech playback; not native PCB BLE |
+
+Most planned testers use iPhone. See [iPhone setup](IOS_SETUP.md): the team needs
+Apple signing/distribution access before an installable iPhone build can be shared.
+No iPhone installer exists yet. The website remains available in Safari.
 
 Neither a standalone preview APK nor a hosted website requires the developer's
 computer to remain on. Expo Go is not the install path for the native BLE app.
