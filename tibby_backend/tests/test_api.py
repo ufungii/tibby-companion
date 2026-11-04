@@ -61,6 +61,34 @@ def test_session_roster_selection_answer_and_revocation():
         assert client.get('/v1/encounters', headers=headers).status_code == 401
 
 
+def test_hosted_website_cors_allows_auth_headers_and_rejects_unlisted_origins(monkeypatch):
+    monkeypatch.delenv('TIBBY_CORS_ORIGINS', raising=False)
+    with TestClient(create_app()) as client:
+        headers = {
+            'Origin': 'https://tibby-app.onrender.com',
+            'Access-Control-Request-Method': 'POST',
+            'Access-Control-Request-Headers': 'authorization,content-type',
+        }
+        preflight = client.options('/v1/ask', headers=headers)
+        assert preflight.status_code == 200
+        assert preflight.headers['access-control-allow-origin'] == headers['Origin']
+        response = client.post('/v1/sessions', headers={'Origin': headers['Origin']})
+        assert response.status_code == 201
+        assert response.headers['access-control-allow-origin'] == headers['Origin']
+        rejected = client.options('/v1/ask', headers={**headers, 'Origin': 'https://unlisted.example'})
+        assert rejected.status_code == 400
+        assert 'access-control-allow-origin' not in rejected.headers
+
+
+def test_explicit_cors_configuration_overrides_the_defaults(monkeypatch):
+    monkeypatch.setenv('TIBBY_CORS_ORIGINS', 'https://custom.example')
+    with TestClient(create_app()) as client:
+        assert client.get('/health', headers={'Origin': 'https://custom.example'}).headers[
+            'access-control-allow-origin'] == 'https://custom.example'
+        assert 'access-control-allow-origin' not in client.get('/health', headers={
+            'Origin': 'https://tibby-app.onrender.com'}).headers
+
+
 def test_tokens_are_session_scoped_rotated_and_checked_before_requests():
     with TestClient(create_app()) as client:
         first, second = session(client), session(client)

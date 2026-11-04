@@ -16,4 +16,4 @@ services:
       - key: TIBBY_PROVIDER
         value: demo
       - key: TIBBY_CORS_ORIGINS
-        value: ""
+        value: "https://tibby-app.onrender.com,http://localhost:8081,http://127.0.0.1:8081"

@@ -20,6 +20,11 @@ For a BLE test, the tester must have the powered PCB within range of their phone
 
 ## Host the web interface on Render
 
+The website has been created at **https://tibby-app.onrender.com**. Keep using
+this existing site; the creation instructions below are for setting up another
+deployment. The backend must run the current CORS configuration before the site
+can open conversations.
+
 The existing backend remains `https://tibby-backend-9le6.onrender.com`.
 Create a separate **Static Site** for the frontend. The website then has its own
 shareable HTTPS address. You do not need to run Expo/Metro on your computer.
@@ -51,16 +56,17 @@ It does not create a second backend. Choose one creation method.
 
 ### Allow the website to call the backend
 
-Once Render assigns the static site's URL, add that exact **origin** to
-`TIBBY_CORS_ORIGINS` in the existing backend service's Environment settings,
-preserving any local preview origins already in use. Use a comma-separated list:
+The backend defaults now allow `https://tibby-app.onrender.com` and local port-8081
+previews. Deploy the current backend commit to apply those defaults. An explicit
+`TIBBY_CORS_ORIGINS` environment variable overrides them; if it exists, include
+the website's exact origin there, preserving the local origins:
 
 ```text
-http://localhost:8081,http://127.0.0.1:8081,https://YOUR_ACTUAL_STATIC_SITE_HOST
+https://tibby-app.onrender.com,http://localhost:8081,http://127.0.0.1:8081
 ```
 
-Use the actual hostname, not that placeholder. Do not add a trailing slash or
-path. Save/redeploy the backend, then reload the website. This requires the
+Do not add a trailing slash or path. Save/redeploy the backend, then reload the
+website. Editing the hosted environment requires the
 hosting account owner unless the Render integration has been connected.
 The native app is not subject to browser CORS.
 

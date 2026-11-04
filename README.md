@@ -30,6 +30,9 @@ Wearable microphone -> BLE -> phone app -> shared Python backend -> UF Navigator
 
 ## Start here
 
+Browser demo: **https://tibby-app.onrender.com**. The backend must deploy the
+website's allowed-origin configuration before browser conversations work.
+
 - **Windows:** [Windows setup](WINDOWS_SETUP.md).
 - **What to install:** [Installation checklist](INSTALL_CHECKLIST.md).
 - **App/native BLE:** [App setup](tibby_app/README.md).

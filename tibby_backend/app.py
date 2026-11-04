@@ -22,6 +22,9 @@ from records import ENCOUNTERS, format_answer
 load_dotenv()
 MAX_AUDIO_BYTES = 1_920_044 + 4096
 SESSION_SECONDS = 3600
+DEFAULT_CORS_ORIGINS = (
+    "https://tibby-app.onrender.com,http://localhost:8081,http://127.0.0.1:8081"
+)
 
 
 @dataclass
@@ -44,7 +47,7 @@ def create_app(provider: Provider | None = None,
     api.add_middleware(
         CORSMiddleware,
         allow_origins=[origin.strip() for origin in os.getenv(
-            "TIBBY_CORS_ORIGINS", "http://localhost:8081,http://127.0.0.1:8081"
+            "TIBBY_CORS_ORIGINS", DEFAULT_CORS_ORIGINS
         ).split(",") if origin.strip()],
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type", "X-Tibby-Context"],
