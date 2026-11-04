@@ -1,5 +1,6 @@
 import type { Answer, Encounter, RequestContext, Turn } from '../domain';
 import { createHttpBackend } from './httpBackend';
+import { SHARED_BACKEND_URL } from '../config';
 
 // Deliberately synthetic. No patient records or model credentials are bundled.
 export const demoEncounters: Encounter[] = [
@@ -70,6 +71,6 @@ export const demoBackend: TibbyBackend = {
 };
 
 // Team/build configuration, not an end-user setting. Never bundle model keys.
-const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL?.trim();
+const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL?.trim() || SHARED_BACKEND_URL;
 const demoMode = process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
-export const backend: TibbyBackend = demoMode ? demoBackend : createHttpBackend(backendUrl ?? '');
+export const backend: TibbyBackend = demoMode ? demoBackend : createHttpBackend(backendUrl);

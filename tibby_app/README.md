@@ -20,18 +20,18 @@ Typed follow-ups work without a connected wearable after a patient is confirmed.
 
 ## Start the backend and connect the app
 
-The app now opens a session automatically with the team's configured server.
-Users do not enter a backend URL or choose a host. The team sets one stable HTTPS
+The app opens a session automatically with the shared prototype server at
+`https://tibby-backend-9le6.onrender.com`, defined in `src/config.ts`.
+Users do not enter a backend URL or choose a host. Developers can override the
 address in the app build environment:
 
 ```text
-EXPO_PUBLIC_BACKEND_URL=https://YOUR_ASSIGNED_SERVICE_HOST
+EXPO_PUBLIC_BACKEND_URL=https://tibby-backend-9le6.onrender.com
 EXPO_PUBLIC_DEMO_MODE=false
 ```
 
-See [shared deployment setup](../tibby_backend/DEPLOYMENT.md). Until a real host is
-created and this value is configured, the app reports that the service is
-unavailable; it does not invent an endpoint or silently enter a demo. Reload/rebuild
+See [shared deployment setup](../tibby_backend/DEPLOYMENT.md). A failed request
+reports the service error; it never silently enters an offline demo. Reload/rebuild
 after changing build configuration. API keys stay on the server, never in
 `EXPO_PUBLIC_*` variables.
 

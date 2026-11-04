@@ -123,7 +123,7 @@ export function createHttpBackend(url: string, fetcher: Fetch = fetch): TibbyBac
         modelLabel = result.provider === 'navigator'
           ? `Navigator: ${typeof result.model === 'string' ? result.model : 'configured'} (configured; not yet verified)`
           : result.provider === 'demo' ? 'Demo provider — no LLM calls' : 'Model status unavailable';
-        audioMode = result.audioMode === 'check' ? 'check' : 'transcription';
+        audioMode = result.provider === 'navigator' ? 'transcription' : 'check';
         supportsAudio = result.audioMode === 'check' || result.provider === 'navigator';
         return encounters;
       } catch (error) {

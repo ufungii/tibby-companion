@@ -37,10 +37,12 @@ Wearable microphone -> BLE -> phone app -> shared Python backend -> UF Navigator
 - **Shared hosting:** [Deployment setup](tibby_backend/DEPLOYMENT.md).
 - **First shared phone / PCB test:** [Demo walkthrough](DEMO_TEST.md).
 
-The app automatically uses the service URL configured by the team at build time.
-Users do not enter a backend address. A developer sets `EXPO_PUBLIC_BACKEND_URL`;
-model keys belong only in the backend environment. No hosted backend has been
-created yet. The deployment files are prepared, not evidence of a live service.
+The app automatically uses the shared prototype backend at
+`https://tibby-backend-9le6.onrender.com`. Users do not enter a backend address.
+Developers can override it with `EXPO_PUBLIC_BACKEND_URL` for local work; model
+keys belong only in the backend environment. Hosting is online in demo mode;
+deploy the current `main` commit to enable the new audio-check endpoint. Physical
+BLE, microphone quality, transcription and AI access still need validation.
 
 ## Chat history
 

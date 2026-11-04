@@ -4,6 +4,10 @@ The first goal is a foreground connection test, followed by live transcription.
 Render hosts the Python API. Expo builds the installable phone app. Headphones
 pair to the phone through system settings; the PCB connects separately over BLE.
 
+The shared demo backend is now `https://tibby-backend-9le6.onrender.com` and the app
+uses it by default. Hosting is online; deploy the current `main` commit to enable
+the recording-check endpoint. Physical PCB/headphone checks need a phone and hardware.
+
 ## 1. Create the shared backend
 
 The existing `render.yaml` can create the service through New > Blueprint.
@@ -38,9 +42,10 @@ EXPO_PUBLIC_BACKEND_URL=https://YOUR_ACTUAL_RENDER_HOST
 EXPO_PUBLIC_DEMO_MODE=false
 ```
 
-Use the actual assigned hostname, not the placeholder. The endpoint is not a
-secret. For cloud builds, set the same values in the Expo project's **preview**
-environment as plain-text environment variables. The model key never belongs
+The shared endpoint is already in `src/config.ts`, so no override is required
+to build or run the app against that service. Use an override only for another
+host. The endpoint is not a secret. Cloud build overrides can be set in the Expo
+project's **preview** environment as plain-text variables. The model key never belongs
 in the app or in `EXPO_PUBLIC_*` settings.
 
 From `tibby_app`:

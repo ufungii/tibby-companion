@@ -12,6 +12,14 @@ endpoint does not imply a shared patient/conversation session.
 
 ## Initial recommendation: Render for a test-data prototype
 
+The user created the shared Web Service at
+`https://tibby-backend-9le6.onrender.com`. Health and session creation were verified
+on November 4, 2026. The first deployment predates `/v1/audio/check`; deploy the
+current `main` commit before testing the recording receipt. It uses
+`TIBBY_PROVIDER=demo`; no live transcription or model access has been verified.
+The app's `src/config.ts` uses this endpoint
+by default, with an optional `EXPO_PUBLIC_BACKEND_URL` override for developers.
+
 Render supports FastAPI web services and supplies an HTTPS `onrender.com` URL.
 The root `render.yaml` specifies a Python service, dependency lockfile, health
 endpoint and a single worker. It starts in deterministic demo mode, so no model
@@ -30,8 +38,8 @@ key is needed for the first deployment.
 5. Open the app. It automatically opens an isolated server session and loads the
    roster. There is no server-address form or manual backend selection.
 
-The Render integration can perform account operations after it is connected.
-No hosting account was connected and no remote service was created in this task.
+The service was created through the user's Render dashboard. Automated account
+management still requires connecting the Render integration separately.
 
 The manifest deliberately uses the free plan and disables automatic deploys. Free
 Render services sleep after 15 minutes without traffic; the next request can take

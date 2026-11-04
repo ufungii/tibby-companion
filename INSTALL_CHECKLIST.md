@@ -101,7 +101,8 @@ installed on the phone, not on the ESP32.
 **Render:** no additional desktop software is required for dashboard deployment.
 You need a Render account with access to the GitHub repository, then use the
 included `render.yaml`. A hosting account and deployment are separate from cloning
-the code. No hosted service has been created yet.
+the code. The shared demo service is now at
+`https://tibby-backend-9le6.onrender.com`; the app uses that address by default.
 
 **Docker Desktop:** optional on Windows, only if you want to build/run the backend
 container locally. Follow Docker's Windows prerequisites, including its supported

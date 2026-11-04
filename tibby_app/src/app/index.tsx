@@ -274,7 +274,9 @@ export default function Home() {
       </> : <>
         <Label>Session active</Label>
         <Label style={styles.small}>{server.model}</Label>
-        {server.mode === 'check' && <Label style={styles.small}>Audio connection test available. Transcription and AI replies are not configured.</Label>}
+        {server.mode === 'check' && <Label style={styles.small}>{server.audio
+          ? 'Audio connection test available. Transcription and AI replies are not configured.'
+          : 'Backend online. Recording checks require the latest backend deployment.'}</Label>}
         <Button label="End session" secondary onPress={endSession} />
       </>}
     </Section>
@@ -306,7 +308,9 @@ export default function Home() {
           <Button label="Stop recording and send" onPress={() => capture.current?.stop()} /></>
           : <Button label={server.mode === 'check' ? 'Test wearable audio round trip' : 'Record wearable audio'} disabled={!device || !encounter || busy || !server.audio} onPress={record} />}
         {server.mode === 'check' && <Label style={styles.small}>Sends real recorded audio and reads back a receipt. This does not transcribe speech or call AI.</Label>}
-        {!server.audio && <Label style={styles.small}>Connect to the backend before sending a recording.</Label>}
+        {!server.audio && <Label style={styles.small}>{started
+          ? 'Recording is unavailable on this backend version. After the server update, end this session and start a new one.'
+          : 'Connect to the backend before sending a recording.'}</Label>}
         {phase === 'waiting' && <Label style={styles.small}>Request sent. Upload or server processing may still be in progress.</Label>}
         {busy && <Button label="Cancel request" secondary onPress={() => { cancel(); setPhase('cancelled'); }} />}
         {answer && <View style={styles.answer}>

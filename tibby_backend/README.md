@@ -37,8 +37,9 @@ EXPO_PUBLIC_DEMO_MODE=false
 ```
 
 The app automatically opens a session on launch. Everyone uses the same service
-address, with separate session tokens/history. The app does not ask users to
-enter server details. No remote service has been created yet.
+address, with separate session tokens/history. The current prototype runs at
+`https://tibby-backend-9le6.onrender.com` in demo mode. The app defaults to this
+address and does not ask users to enter server details.
 
 For local development, set that build variable to your computer's LAN IP and run
 the API with `--host 0.0.0.0`. On a physical phone, localhost means the phone,
