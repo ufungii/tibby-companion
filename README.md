@@ -40,9 +40,10 @@ Wearable microphone -> BLE -> phone app -> shared Python backend -> UF Navigator
 The app automatically uses the shared prototype backend at
 `https://tibby-backend-9le6.onrender.com`. Users do not enter a backend address.
 Developers can override it with `EXPO_PUBLIC_BACKEND_URL` for local work; model
-keys belong only in the backend environment. Hosting is online in demo mode;
-deploy the current `main` commit to enable the new audio-check endpoint. Physical
-BLE, microphone quality, transcription and AI access still need validation.
+keys belong only in the backend environment. The live demo passed session,
+patient-selection, generated-WAV receipt, history-isolation and typed-reply checks
+on November 4, 2026. Physical BLE, microphone quality, transcription and AI access
+still need validation.
 
 ## Chat history
 

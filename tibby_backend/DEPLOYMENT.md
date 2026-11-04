@@ -13,9 +13,11 @@ endpoint does not imply a shared patient/conversation session.
 ## Initial recommendation: Render for a test-data prototype
 
 The user created the shared Web Service at
-`https://tibby-backend-9le6.onrender.com`. Health and session creation were verified
-on November 4, 2026. The first deployment predates `/v1/audio/check`; deploy the
-current `main` commit before testing the recording receipt. It uses
+`https://tibby-backend-9le6.onrender.com`. On November 4, 2026, the deployed update
+passed health, session creation, browser CORS on port 8081, patient confirmation,
+generated-WAV receipt (0.10 seconds, 3,244 bytes), typed demo reply and patient
+history-isolation checks. Test sessions were revoked afterward. The WAV was
+generated locally, not captured from the PCB. The service uses
 `TIBBY_PROVIDER=demo`; no live transcription or model access has been verified.
 The app's `src/config.ts` uses this endpoint
 by default, with an optional `EXPO_PUBLIC_BACKEND_URL` override for developers.

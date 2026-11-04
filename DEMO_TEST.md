@@ -5,8 +5,11 @@ Render hosts the Python API. Expo builds the installable phone app. Headphones
 pair to the phone through system settings; the PCB connects separately over BLE.
 
 The shared demo backend is now `https://tibby-backend-9le6.onrender.com` and the app
-uses it by default. Hosting is online; deploy the current `main` commit to enable
-the recording-check endpoint. Physical PCB/headphone checks need a phone and hardware.
+uses it by default. Its live recording-check endpoint, session flow and isolated
+history passed a generated-WAV test on November 4, 2026. The receipt reported
+0.10 seconds and 3,244 bytes. This was not a PCB microphone capture.
+Physical PCB/headphone checks still need a phone and hardware.
+Skip service creation below when using this existing deployment.
 
 ## 1. Create the shared backend
 
