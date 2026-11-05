@@ -54,6 +54,73 @@ patient-selection, generated-WAV receipt, history-isolation and typed-reply chec
 on November 4, 2026. Physical BLE, microphone quality, transcription and AI access
 still need validation.
 
+## iPhone demo with the PCB: Bluefy
+
+This is the experimental iPhone route without signing a custom TIBBY app. Install
+[Bluefy – Web BLE Browser by PNN SOFT](https://apps.apple.com/us/app/bluefy-web-ble-browser/id1492822055),
+which supplies Web Bluetooth support to the website. No personal Apple Developer
+membership is needed to use this existing browser.
+
+1. Ensure Render's **tibby-app Static Site** has deployed the latest `main` commit.
+   If necessary, choose **Manual Deploy → Deploy latest commit**. Web BLE support
+   was introduced in commit `7aa679b`.
+2. Enable Bluetooth on the iPhone and allow Bluefy Bluetooth access when prompted.
+3. Power the PCB running the compatible microphone/BLE firmware. Keep it nearby
+   and disconnect other phones or computers already connected to it.
+4. **Inside Bluefy**, open **https://tibby-app.onrender.com**. Keep the browser open
+   and the phone unlocked. Safari and a Safari Home Screen shortcut do not provide
+   the required Web Bluetooth interface.
+5. Tap **Scan for TIBBY**, select **TIBBY_peripheral** in the browser's device picker,
+   then tap **Connect** in the page. Wait for the Connected status.
+6. In demo mode, tap **Test wearable audio round trip**, speak briefly, then tap
+   **Stop recording and send**. The receipt confirms audio bytes reached the
+   backend; it does not transcribe speech or generate an AI answer.
+7. Pair headphones through iPhone settings if desired. Use **Test audio**, then
+   **Play / replay response** to check audibility. The website cannot verify the
+   active headphone route. Expand a step's arrow for additional instructions.
+
+Protocol tests and simulated browser BLE capture to the hosted backend passed.
+**Physical Bluefy/PCB throughput, recording quality and playback remain unverified.**
+A receipt proves received bytes, not lossless transport. Capture is limited to
+30 seconds. See [troubleshooting and details](HOME_DEMO.md#try-the-pcb-on-iphone-through-bluefy).
+
+For the native iPhone app, [TestFlight setup](IOS_SETUP.md) is a separate option:
+Apple Developer signing access → Expo cloud build → App Store Connect/TestFlight
+→ tester installation. Testers do not each need paid developer memberships.
+Expo Go does not contain TIBBY's native BLE integration.
+
+## Enable NaviGator AI on the shared backend
+
+For the hosted demo, add the secret only to **Render → tibby-backend Web Service
+→ Environment**. These are backend runtime settings, not settings for the
+`tibby-app` Static Site. Enter each name in the **Key** column and its value in
+the separate **Value** column; do not put `NAME=value` together in the Key field.
+
+| Key | Value |
+| --- | --- |
+| `TIBBY_PROVIDER` | `navigator` |
+| `NAVIGATOR_TOOLKIT_API_KEY` | Your actual NaviGator API key |
+| `NAVIGATOR_CHAT_MODEL` | Exact chat model ID allowed by that key |
+| `NAVIGATOR_STT_MODEL` | `whisper-large-v3`, if allowed by that key |
+
+Create or inspect a key in the [UF NaviGator Toolkit](https://api.ai.it.ufl.edu/ui).
+Its detail page shows accessible models; use the exact API model ID rather than
+a display name. See [UF's key/model instructions](https://docs.ai.it.ufl.edu/docs/navigator_toolkit/getting_started/quickstart/).
+
+Save the settings and redeploy the **backend**, then reload the website to start
+a fresh session. Test a typed chat question first; then test transcription with
+a short recording through a supported BLE client. Navigator mode changes the
+recording action from an audio connection check to transcription and AI replies.
+Model permissions, quota and successful calls from Render still need verification;
+a Live deployment or successful health check alone does not prove AI works.
+
+Do not put the API key in GitHub, this README, chat, screenshots, the phone app,
+or an `EXPO_PUBLIC_*` variable. For local backend development only, use an ignored
+`tibby_backend/.env` following the [backend setup](tibby_backend/README.md).
+The phone/browser does not need its own copy of the key. Keep the existing
+`TIBBY_CORS_ORIGINS` setting intact. Use synthetic data/test speech; see
+[deployment limitations and access controls](tibby_backend/DEPLOYMENT.md).
+
 ## Chat history
 
 The latest response and Play / replay controls appear above history. Audio output
