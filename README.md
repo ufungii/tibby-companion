@@ -72,17 +72,15 @@ membership is needed to use this existing browser.
    the required Web Bluetooth interface.
 5. Tap **Scan for TIBBY**, select **TIBBY_peripheral** in the browser's device picker,
    then tap **Connect** in the page. Wait for the Connected status.
-6. In demo mode, tap **Test wearable audio round trip**, speak briefly, then tap
-   **Stop recording and send**. The receipt confirms audio bytes reached the
-   backend; it does not transcribe speech or generate an AI answer.
+6. In **Chat history**, type a question and tap **Ask question**. The wearable
+   recording and audio round-trip test panel has been removed.
 7. Pair headphones through iPhone settings if desired. Use **Test audio**, then
    **Play / replay response** to check audibility. The website cannot verify the
    active headphone route. Expand a step's arrow for additional instructions.
 
 Protocol tests and simulated browser BLE capture to the hosted backend passed.
 **Physical Bluefy/PCB throughput, recording quality and playback remain unverified.**
-A receipt proves received bytes, not lossless transport. Capture is limited to
-30 seconds. See [troubleshooting and details](HOME_DEMO.md#try-the-pcb-on-iphone-through-bluefy).
+The current UI does not capture or upload wearable audio. See [troubleshooting and details](HOME_DEMO.md#try-the-pcb-on-iphone-through-bluefy).
 
 For the native iPhone app, [TestFlight setup](IOS_SETUP.md) is a separate option:
 Apple Developer signing access → Expo cloud build → App Store Connect/TestFlight

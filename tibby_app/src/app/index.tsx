@@ -6,7 +6,7 @@ import { createRequestGuard } from '../domain';
 import type { Answer, Turn } from '../domain';
 import { backend } from '../services/backend';
 import { createWearable } from '../services/wearable';
-import type { Capture, WearableDevice } from '../services/wearableTypes';
+import type { WearableDevice } from '../services/wearableTypes';
 import { useAudioOutput } from '../hooks/useAudioOutput';
 import { describeOutput, outputIdentity } from '../services/audioOutputTypes';
 import { finishAudioPlayback, prepareAudioPlayback } from '../services/audioOutput';
@@ -14,22 +14,19 @@ import { openDemoConversation } from '../services/demoSession';
 import { Button, Label, Step } from '../components/ui';
 import { theme } from '../theme';
 
-type Phase = 'idle' | 'recording' | 'sending' | 'waiting' | 'ready' | 'cancelled' | 'error';
+type Phase = 'idle' | 'sending' | 'waiting' | 'ready' | 'cancelled' | 'error';
 const phaseLabels: Record<Phase, string> = {
-  idle: 'Ready to record or ask a question', recording: 'Recording', sending: 'Sending',
+  idle: 'Ready to ask a question', sending: 'Sending',
   waiting: 'Waiting for response', ready: 'Response ready', cancelled: 'Cancelled', error: 'Request failed',
 };
 
 export default function Home() {
   const [started, setStarted] = useState(false);
-  const [server, setServer] = useState({ audio: false, mode: 'check' });
   const [starting, setStarting] = useState(true);
   const [devices, setDevices] = useState<WearableDevice[]>([]);
   const [device, setDevice] = useState<WearableDevice | null>(null);
   const [deviceBusy, setDeviceBusy] = useState(false);
   const [deviceStatus, setDeviceStatus] = useState('Not connected');
-  const [recording, setRecording] = useState(false);
-  const [seconds, setSeconds] = useState(0);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [question, setQuestion] = useState('');
   const [history, setHistory] = useState<Turn[]>([]);
@@ -46,7 +43,6 @@ export default function Home() {
   const [error, setError] = useState('');
   const api = useRef(backend);
   const [wearable] = useState(createWearable);
-  const capture = useRef<Capture | null>(null);
   const guard = useRef(createRequestGuard());
   const controller = useRef<AbortController | null>(null);
   const setupController = useRef<AbortController | null>(null);
@@ -66,7 +62,6 @@ export default function Home() {
       if (alive.current && version === operation.current) {
         guard.current.setEncounter(conversation.id, conversation.token);
         setConversationId(conversation.id); setHistory(conversation.history); setStarted(true);
-        setServer({ audio: api.current.supportsAudio, mode: api.current.audioMode ?? 'transcription' });
       }
     } catch (cause) {
       if (alive.current && version === operation.current) {
@@ -87,8 +82,7 @@ export default function Home() {
   }, []);
   function cancel() {
     guard.current.cancel(); controller.current?.abort(); controller.current = null;
-    capture.current?.cancel(); capture.current = null;
-    stopPlayback(); setRecording(false); setBusy(false); setAnswer(null); setError(''); setPhase('idle');
+    stopPlayback(); setBusy(false); setAnswer(null); setError(''); setPhase('idle');
   }
   useEffect(() => {
     alive.current = true;
@@ -97,16 +91,16 @@ export default function Home() {
     const service = api.current;
     const subscription = AppState.addEventListener('change', (state) => {
       if (state !== 'active') {
-        requestGuard.cancel(); controller.current?.abort(); capture.current?.cancel();
+        requestGuard.cancel(); controller.current?.abort();
         speechVersion.current += 1; void Speech.stop().then(() => finishAudioPlayback()).catch(() => undefined);
-        setBusy(false); setRecording(false); setSpeaking(false); setPlayback('idle'); setAnswer(null); setPhase('idle');
+        setBusy(false); setSpeaking(false); setPlayback('idle'); setAnswer(null); setPhase('idle');
       }
     });
     return () => {
       clearTimeout(startup);
       alive.current = false; operation.current += 1; deviceOperation.current += 1;
       subscription.remove(); requestGuard.cancel(); controller.current?.abort();
-      setupController.current?.abort(); capture.current?.cancel();
+      setupController.current?.abort();
       speechVersion.current += 1; void Speech.stop().then(() => finishAudioPlayback()).catch(() => undefined);
       void service.end().catch(() => undefined);
       void wearable.destroy().catch(() => undefined);
@@ -170,31 +164,6 @@ export default function Home() {
     deviceOperation.current += 1; cancel(); setDevice(null); setDeviceBusy(false); setDevices([]); setDeviceStatus('Not connected');
     await wearable.disconnect();
   }
-  function record() {
-    if (!device || !conversationId || busy || !api.current.supportsAudio) return;
-    cancel(); const context = guard.current.begin();
-    const abort = new AbortController(); controller.current = abort;
-    setBusy(true); setRecording(true); setSeconds(0); setPhase('recording');
-    const service = api.current;
-    const fail = (cause: Error) => {
-      if (alive.current && guard.current.accepts(context)) { setRecording(false); setBusy(false); setPhase('error'); setError(cause.message); }
-    };
-    try {
-      capture.current = wearable.capture({
-        progress: (value) => { if (alive.current && guard.current.accepts(context)) setSeconds(value); },
-        error: fail,
-        complete: (wav) => {
-          if (!alive.current || !guard.current.accepts(context)) return;
-          setRecording(false); capture.current = null; setPhase('sending');
-          void service.askAudio(context, wav, abort.signal, (next) => {
-            if (alive.current && guard.current.accepts(context)) setPhase(next);
-          })
-            .then((result) => accept(result, '', 'wearable')).catch(fail)
-            .finally(() => { if (alive.current && guard.current.accepts(context)) setBusy(false); });
-        },
-      });
-    } catch (cause) { fail(cause instanceof Error ? cause : new Error('Recording failed.')); }
-  }
   async function playAudio(test = false) {
     if (!test && (!answer || !guard.current.accepts(answer.context))) return;
     const context = test ? null : answer!.context;
@@ -244,22 +213,26 @@ export default function Home() {
         : <Button label="Disconnect wearable" secondary onPress={() => void disconnect()} />}
       {devices.map((found) => <Button key={found.id} label={`Connect ${found.name} (${found.id.slice(-8)})`} disabled={deviceBusy} secondary onPress={() => void connect(found)} />)}
     </Step>
-    <Step number={2} title="Recording and response" help={<>
-      <Label style={styles.small}>Start a wearable recording, speak, then stop and send it. Recording starts only when you choose it.</Label>
-      <Label style={styles.small}>In connection-test mode, the reply confirms the duration and bytes received. It does not transcribe speech or call AI.</Label>
-      <Label style={styles.small}>When a reply is ready, read it here or use Play / replay response. Waiting includes upload and processing time.</Label>
+    <Step number={2} title="Audio output" help={<>
+      <Label style={styles.small}>Pair headphones and select audio output in phone settings. This connection is separate from the wearable.</Label>
+      <Label style={styles.small}>Use Test audio to check audibility. A detected or connected device does not prove where speech is playing.</Label>
+      {Platform.OS === 'web' && <Label style={styles.small}>Browser audio uses the output selected on your device. Headphone-route detection is unavailable in this web demo.</Label>}
+      {Platform.OS === 'ios' && <Label style={styles.small}>If speech is muted, check the phone volume and silent mode.</Label>}
+    </>}>
+        <Label accessibilityLiveRegion="polite">{describeOutput(output)}</Label>
+        {!!output.connected.length && <Label style={styles.small}>Detected audio devices: {output.connected.map((item) => item.name).join(', ')}</Label>}
+        <Button label={playback !== 'idle' ? 'Stop audio' : 'Test audio'}
+          onPress={() => playback !== 'idle' ? stopPlayback() : void playAudio(true)} secondary />
+        {testedOutput === audioIdentity && confirmedOutput !== audioIdentity && <Button label="I heard the test audio" secondary onPress={() => setConfirmedOutput(audioIdentity)} />}
+        {confirmedOutput === audioIdentity && <Label style={styles.small}>You confirmed the test was audible. This is a listening check, not automatic verification of the headphone route.</Label>}
+    </Step>
+    <Step number={3} title="Chat history" help={<>
+      <Label style={styles.small}>Review your questions and replies, or ask a follow-up without connecting the wearable.</Label>
+      <Label style={styles.small}>New conversation clears this chat and starts fresh. The server keeps only the latest 40 messages for the current session.</Label>
     </>}>
         <Label accessibilityLiveRegion="polite" style={styles.emphasis}>
           {playback === 'starting' ? 'Preparing audio...' : playback === 'reply' && speaking ? 'Playing response' : phaseLabels[phase]}
         </Label>
-        {!conversationId && <Label style={styles.small}>{starting ? 'Preparing conversation...' : 'Reconnect to record or ask questions.'}</Label>}
-        {recording ? <><Label accessibilityLiveRegion="polite">Receiving audio: {seconds.toFixed(1)} seconds</Label>
-          <Button label="Stop recording and send" onPress={() => capture.current?.stop()} /></>
-          : <Button label={server.mode === 'check' ? 'Test wearable audio round trip' : 'Record wearable audio'} disabled={!device || !conversationId || busy || !server.audio} onPress={record} />}
-        {started && server.mode === 'check' && <Label style={styles.small}>Connection test · no transcription or AI</Label>}
-        {!server.audio && <Label style={styles.small}>{started
-          ? 'Recording is unavailable. Try a new conversation after the service has been updated.'
-          : 'Waiting for a connection before sending a recording.'}</Label>}
         {busy && <Button label="Cancel request" secondary onPress={() => { cancel(); setPhase('cancelled'); }} />}
         {answer && <View style={styles.answer}>
           <Label style={styles.emphasis}>Latest response</Label>
@@ -270,25 +243,6 @@ export default function Home() {
             onPress={() => playback !== 'idle' ? stopPlayback() : void playAudio()} />
           {answer.sources.map((source) => <View key={source.title}><Label style={styles.emphasis}>{source.title}</Label><Label style={styles.small}>{source.detail}</Label></View>)}
         </View>}
-    </Step>
-    <Step number={3} title="Audio output" help={<>
-      <Label style={styles.small}>Pair headphones and select audio output in phone settings. This connection is separate from the wearable.</Label>
-      <Label style={styles.small}>Use Test audio to check audibility. A detected or connected device does not prove where speech is playing.</Label>
-      {Platform.OS === 'web' && <Label style={styles.small}>Browser audio uses the output selected on your device. Headphone-route detection is unavailable in this web demo.</Label>}
-      {Platform.OS === 'ios' && <Label style={styles.small}>If speech is muted, check the phone volume and silent mode.</Label>}
-    </>}>
-        <Label accessibilityLiveRegion="polite">{describeOutput(output)}</Label>
-        {!!output.connected.length && <Label style={styles.small}>Detected audio devices: {output.connected.map((item) => item.name).join(', ')}</Label>}
-        <Button label={playback !== 'idle' ? 'Stop audio' : 'Test audio'}
-          disabled={recording} onPress={() => playback !== 'idle' ? stopPlayback() : void playAudio(true)} secondary />
-        {testedOutput === audioIdentity && confirmedOutput !== audioIdentity && <Button label="I heard the test audio" secondary onPress={() => setConfirmedOutput(audioIdentity)} />}
-        {confirmedOutput === audioIdentity && <Label style={styles.small}>You confirmed the test was audible. This is a listening check, not automatic verification of the headphone route.</Label>}
-    </Step>
-    <Step number={4} title="Chat history" help={<>
-      <Label style={styles.small}>Review transcripts, your questions and replies, or ask a follow-up without connecting the wearable.</Label>
-      <Label style={styles.small}>New conversation clears this chat and starts fresh. The server keeps only the latest 40 messages for the current session.</Label>
-      <Label style={styles.small}>A microphone recording captures speech; it does not verify who spoke.</Label>
-    </>}>
         <Button label="New conversation" secondary disabled={starting || busy} onPress={newConversation} />
         {!history.length && <Label style={styles.small}>{conversationId ? 'No messages in this conversation yet.' : 'Waiting for a connection.'}</Label>}
         {history.map((turn) => <View key={turn.id} style={styles.turn}>
@@ -298,7 +252,7 @@ export default function Home() {
         <Label style={styles.fieldLabel}>Ask about this conversation</Label>
         <TextInput accessibilityLabel="Question about chat history" value={question} onChangeText={setQuestion}
           editable={!!conversationId && !busy} multiline maxLength={500} style={styles.input} keyboardAppearance="dark"
-          placeholder="What was said in the last recording?" placeholderTextColor={theme.muted} />
+          placeholder="Ask a question or follow up on a reply" placeholderTextColor={theme.muted} />
         <Button label="Ask question" disabled={!conversationId || busy || !question.trim()} onPress={() => void ask()} />
     </Step>
   </ScrollView></SafeAreaView>;

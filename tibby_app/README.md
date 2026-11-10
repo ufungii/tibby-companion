@@ -90,40 +90,23 @@ SDK, the BLE library, permissions, throughput and headphone audio routing.
 The `testflight` profile prepares a store-distribution iOS build. Signing and
 submission need Apple Developer/App Store Connect access; see [iPhone setup](../IOS_SETUP.md).
 
-## Connect and record
+## Connect and chat
 
-1. Flash the existing **BLE audio** peripheral firmware, not the optional Wi-Fi
-   test or the MAX9850 eval-board experiment. Populate/connect the board mic.
-2. In the development app, allow Bluetooth permissions and tap **Scan for TIBBY**.
-   It finds the advertised name `TIBBY_peripheral`, connects, and checks the expected
-   notify characteristic. Scanning lasts six seconds. No bonding/device identity
-   verification is implemented.
-3. Wait for automatic demo-conversation setup. Use Test audio to check the
-   phone/headphone output. There is no patient selection step in this version.
-4. In default demo mode, tap **Test wearable audio round trip** to receive an audio
-   receipt without transcription/AI. In NaviGator mode, tap **Record wearable
-   audio**, then **Stop recording and send**. Capture also
-   stops at 30 seconds of received samples. It is not an always-on microphone.
-5. Review the transcript/reply and ask a typed follow-up, such as
-   "What was said in the last recording?". Tap **Play / replay response** for phone TTS.
+1. Power the PCB running the BLE peripheral firmware and allow Bluetooth permissions.
+2. Tap **Scan for TIBBY**, choose `TIBBY_peripheral`, and connect. Scanning lasts
+   six seconds. No bonding/device identity verification is implemented.
+3. Use **Test audio** in Audio output to check phone/headphone playback.
+4. In Chat history, type a question and tap **Ask question**. Review the latest
+   response or use **Play / replay response** for phone TTS.
 
-The adapter subscribes to legacy service `180D`, notification characteristic
-`2A37` (expanded Bluetooth base UUIDs). Notifications are raw little-endian
-16 kHz mono 16-bit PCM. They are packaged into WAV and uploaded as base64 JSON to
-avoid native Blob/file interoperability problems. This protocol is read directly
-from the existing firmware. The firmware now preserves each 256-sample block and
-splits it into even-sized notifications using the negotiated ATT MTU. This C change
-has not been compiled here because ESP-IDF is unavailable; build/flash verification
-is required. The protocol has no packet sequence numbers, verified device
-identity, or recording acknowledgement. Packet loss cannot currently be detected;
-these protocol improvements and wearable-button control remain firmware work.
-No reply audio is written to the wearable's `2A38` characteristic: that firmware
-only logs incoming writes and cannot play them.
+The wearable recording and audio round-trip test panel has been removed. Wearable
+connection controls remain available, but the screen no longer captures or uploads
+microphone audio. The underlying audio adapters and backend API remain available
+for future integration.
 
-Cancelling, ending the session, disconnecting or backgrounding stops recording and
-invalidates pending answers. Background/locked-phone streaming is not implemented.
-The app requests foreground BLE support only. Android 12+ requests scan/connect;
-older Android uses location permission as required for BLE discovery.
+Cancelling, starting a new conversation, disconnecting or backgrounding invalidates
+pending answers. The app requests foreground BLE support only. Android 12+ requests
+scan/connect; older Android uses location permission as required for BLE discovery.
 
 ## Conversation and playback
 
@@ -150,7 +133,7 @@ forced. Physical route/audibility testing is still required. Output changes rese
 the listening confirmation; detected headphone removal stops active playback.
 Browser preview plays on the computer and cannot detect its headphone route.
 
-Recording and response status is shown above the latest answer. Sending means
+Question and response status is shown in Chat history above the latest answer. Sending means
 request preparation/dispatch, not a verified completed upload. Waiting includes
 upload and server processing. Playing is shown only after speech's start callback.
 This is request/response behavior, not streamed speech or token delivery.

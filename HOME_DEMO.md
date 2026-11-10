@@ -62,13 +62,12 @@ membership or custom TIBBY installation is needed for this experiment.
    provide this bridge.
 4. Tap **Scan for TIBBY**, choose **TIBBY_peripheral** in the browser's picker,
    then tap the **Connect** button shown in the page. Wait for Connected.
-5. Use **Test wearable audio round trip**, speak for a few seconds, then choose
-   **Stop recording and send**. A successful receipt confirms recorded WAV data
-   reached the server; in demo mode it does not transcribe or call AI.
+5. In **Chat history**, type a question and tap **Ask question**. Wearable recording
+   and the audio round-trip test are no longer exposed in the UI.
 6. Pair headphones in iPhone settings, use **Test audio**, and play the response.
    Check audibility yourself: the web page cannot verify the output route.
 
-Keep Bluefy open and the phone unlocked. Capture is limited to 30 seconds. The
+Keep Bluefy open and the phone unlocked. The
 browser chooser selects one device; it is not a background scanner. If permission
 was denied, enable Bluefy Bluetooth access in iPhone settings and reload. If no
 board is listed, check its power, advertising name, firmware and other connections.

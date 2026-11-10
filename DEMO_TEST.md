@@ -82,21 +82,18 @@ describe a development client that needs Metro as a standalone tester app.
    from an actual speech route; a detected device alone does not prove audibility.
 3. Power the PCB running the compatible BLE microphone firmware. Allow Bluetooth
    permissions, scan for `TIBBY_peripheral`, select it, and confirm connection.
-4. Wait for automatic demo-conversation setup. Press **Test wearable audio round trip**,
-   speak near the PCB microphone, then press **Stop recording and send**.
-5. Watch **Recording > Sending > Waiting for response > Response ready**. Sending
-   is a brief dispatch state, not a measured upload percentage. The app cannot
-   tell whether an in-flight request is uploading or processing on the server.
-6. The latest response should acknowledge duration and bytes received. Press
-   **Play / replay response** and verify it is audible through the selected output.
-   Stop playback, replay, and repeat after ending and restarting the demo session.
+4. Wait for automatic demo-conversation setup. In **Chat history**, enter a typed
+   question and press **Ask question**. The wearable recording/test panel is removed.
+5. Watch **Sending > Waiting for response > Response ready** in Chat history.
+   Sending is a brief dispatch state, not a measured upload percentage.
+6. Read the latest response. Press **Play / replay response** and verify it is
+   audible through the selected output. Stop playback, replay, and repeat after
+   starting a new conversation.
 7. Disconnect the PCB and verify the app reports it. Disconnect headphones during
    playback and verify route handling on the actual phone before the demo.
 
-The receipt proves that the backend received a valid, nonzero-signal WAV from
-the app. It does not prove intelligible speech, lossless BLE delivery, microphone
-quality, device identity, or transcription. No fabricated transcript is returned.
-Connection-check entries are labelled separately in history.
+The current screen does not capture or upload wearable audio. Backend audio-check
+API tests remain separate from this UI walkthrough.
 
 ## 4. Enable actual speech / AI
 
