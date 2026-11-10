@@ -299,7 +299,7 @@ export default function Home() {
         onPress={() => armed ? setArmed(false) : void armMicrophone()} />
       <Button label={scope === 'record' ? 'Mode: sample record retrieval' : 'Mode: conversation'} secondary disabled={busy}
         onPress={() => setScope(scope === 'record' ? 'conversation' : 'record')} />
-      <Label style={styles.small}>{scope === 'record' ? 'Retrieval test: ask ?What is the latest potassium?? The reply includes the synthetic record source.' : 'Ask about words captured in this conversation.'}</Label>
+      <Label style={styles.small}>{scope === 'record' ? 'Ask about the sample patient record. For example: What is the latest potassium?' : 'Ask about words captured in this conversation.'}</Label>
       {recording && <Button label="Cancel recording" secondary onPress={cancel} />}
     </Step>
     <Step number={3} title="Audio output" help={<>
