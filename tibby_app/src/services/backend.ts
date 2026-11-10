@@ -17,7 +17,7 @@ export interface TibbyBackend {
   selectEncounter(id: string | null, signal?: AbortSignal): Promise<string | undefined>;
   end(): Promise<void>;
   ask(context: RequestContext, question: string, signal: AbortSignal, progress?: (phase: 'sending' | 'waiting') => void): Promise<Answer>;
-  askAudio(context: RequestContext, audio: Uint8Array, signal: AbortSignal, progress?: (phase: 'sending' | 'waiting') => void): Promise<Answer>;
+  askAudio(context: RequestContext, audio: Uint8Array, signal: AbortSignal, progress?: (phase: 'sending' | 'waiting') => void, scope?: 'record' | 'conversation'): Promise<Answer>;
   history(encounterId: string, signal: AbortSignal): Promise<Turn[]>;
 }
 

@@ -2,6 +2,7 @@ import { PermissionsAndroid, Platform } from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { toByteArray } from 'base64-js';
 import type { BleManager, Device, Subscription } from 'react-native-ble-plx';
+import { parsePcbControl } from './pcbControls';
 import { pcmToWav } from './audio';
 import type { Capture, CaptureCallbacks, Wearable, WearableDevice } from './wearableTypes';
 
@@ -13,6 +14,7 @@ export function createWearable(): Wearable {
   let device: Device | undefined;
   let connection: Subscription | undefined;
   let capture: Capture | undefined;
+  let controls: Subscription | undefined;
   let generation = 0;
   let stopScan: (() => void) | undefined;
 
@@ -92,6 +94,7 @@ export function createWearable(): Wearable {
         device = peripheral;
         connection = activeManager.onDeviceDisconnected(id, () => {
           if (device?.id !== id) return;
+          controls?.remove(); controls = undefined;
           device = undefined;
           capture?.cancel(); capture = undefined;
           onDisconnect();
@@ -103,6 +106,7 @@ export function createWearable(): Wearable {
     },
     async disconnect() {
       generation += 1;
+      controls?.remove(); controls = undefined;
       stopScan?.();
       capture?.cancel(); capture = undefined;
       connection?.remove(); connection = undefined;
@@ -147,7 +151,20 @@ export function createWearable(): Wearable {
       capture = { stop: () => finish(), cancel: () => finish(true) };
       return capture;
     },
+    listenControls(onCommand, onError) {
+      if (!device) throw new Error('Connect to the PCB first.');
+      controls?.remove();
+      const subscription = device.monitorCharacteristicForService(SERVICE, AUDIO, (error, value) => {
+        if (error) { onError(new Error(error.message)); return; }
+        if (!value?.value) return;
+        const command = parsePcbControl(toByteArray(value.value));
+        if (command) onCommand(command);
+      });
+      controls = subscription;
+      return () => { subscription.remove(); if (controls === subscription) controls = undefined; };
+    },
     async destroy() {
+      controls?.remove(); controls = undefined;
       generation += 1; stopScan?.(); capture?.cancel(); connection?.remove();
       const old = device; device = undefined;
       if (old) await old.cancelConnection().catch(() => undefined);

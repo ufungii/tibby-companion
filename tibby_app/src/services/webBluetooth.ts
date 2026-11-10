@@ -1,3 +1,4 @@
+import { parsePcbControl } from './pcbControls.ts';
 import type { Capture, CaptureCallbacks, Wearable } from './wearableTypes';
 
 const SERVICE = '0000180d-0000-1000-8000-00805f9b34fb';
@@ -31,6 +32,7 @@ export function createWebWearable(bluetooth: WebBluetooth | undefined,
   let microphone: WebCharacteristic | undefined;
   let capture: Capture | undefined;
   let disconnected: (() => void) | undefined;
+  let stopControls: (() => void) | undefined;
   let generation = 0;
   let notifications: Promise<unknown> = Promise.resolve();
   const queue = (operation: () => Promise<unknown>) => {
@@ -38,6 +40,7 @@ export function createWebWearable(bluetooth: WebBluetooth | undefined,
     return notifications;
   };
   function release() {
+    stopControls?.(); stopControls = undefined;
     capture?.cancel(); capture = undefined;
     if (selected && disconnected) selected.removeEventListener('gattserverdisconnected', disconnected);
     disconnected = undefined; microphone = undefined;
@@ -70,6 +73,7 @@ export function createWebWearable(bluetooth: WebBluetooth | undefined,
         microphone = characteristic;
         disconnected = () => {
           if (selected !== target) return;
+          stopControls?.(); stopControls = undefined;
           generation += 1; capture?.cancel(); capture = undefined; microphone = undefined;
           target.removeEventListener('gattserverdisconnected', disconnected!);
           disconnected = undefined; selected = undefined; onDisconnect();
@@ -121,6 +125,27 @@ export function createWebWearable(bluetooth: WebBluetooth | undefined,
       void queue(async () => { if (!ended) await characteristic.startNotifications(); })
         .catch(() => finish(false, new Error('Could not start microphone notifications. Reconnect and try again.')));
       return result;
+    },
+    listenControls(onCommand, onError) {
+      const characteristic = microphone;
+      if (!characteristic || !selected?.gatt?.connected) throw new Error('Connect to the PCB first.');
+      stopControls?.();
+      let active = true;
+      const receive = () => {
+        const value = characteristic.value;
+        if (!active || !value) return;
+        const command = parsePcbControl(new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
+        if (command) onCommand(command);
+      };
+      characteristic.addEventListener('characteristicvaluechanged', receive);
+      void queue(async () => { if (active) await characteristic.startNotifications(); })
+        .catch(() => { if (active) onError(new Error('Could not listen for PCB buttons. Reconnect.')); });
+      const stop = () => {
+        active = false; characteristic.removeEventListener('characteristicvaluechanged', receive);
+        void queue(() => characteristic.stopNotifications()).catch(() => undefined);
+      };
+      stopControls = stop;
+      return stop;
     },
     async destroy() { generation += 1; release(); },
   };

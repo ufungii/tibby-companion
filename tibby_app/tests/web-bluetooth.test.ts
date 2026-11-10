@@ -79,3 +79,20 @@ test('unsupported browser reports unavailable rather than simulating discovery',
   const wearable = createWebWearable(undefined, pcmToWav);
   assert.equal(wearable.available, false);await assert.rejects(wearable.scan(), /Bluefy/);
 });
+
+
+test('PCB controls require explicit START/STOP and stop listening after disarm', async () => {
+  const f = setup(); await f.wearable.scan(); await f.wearable.connect(f.device.id, () => {});
+  const commands: string[] = [];
+  const stop = f.wearable.listenControls((command) => commands.push(command), assert.ifError);
+  await flush();
+  for (const text of ['START', 'STARTED', 'STOP\n']) {
+    const bytes = new TextEncoder().encode(text); f.send(new DataView(bytes.buffer));
+  }
+  f.send(new DataView(new Uint8Array([1, 0, 0, 0]).buffer));
+  assert.deepEqual(commands, ['start', 'stop']);
+  stop(); await flush();
+  f.send(new DataView(new TextEncoder().encode('START').buffer));
+  assert.deepEqual(commands, ['start', 'stop']);
+  await f.wearable.destroy();
+});

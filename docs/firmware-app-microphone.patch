@@ -1,0 +1,162 @@
+diff --git a/tibby_fw_periph/main/Kconfig.projbuild b/tibby_fw_periph/main/Kconfig.projbuild
+index 0035dc3..9f90be3 100644
+--- a/tibby_fw_periph/main/Kconfig.projbuild
++++ b/tibby_fw_periph/main/Kconfig.projbuild
+@@ -40,3 +40,12 @@ menu "Example Configuration"
+             Some GPIOs are used for other purposes (flash connections, etc.) and cannot be used to blink.
+ 
+ endmenu
++
++menu "TIBBY audio input"
++config TIBBY_APP_MICROPHONE
++    bool "Use app microphone with PCB start/stop buttons"
++    default y
++    help
++        Skip I2S microphone initialization and audio streaming. GPIO 6 sends
++        START and STOP notifications to the companion app instead.
++endmenu
+diff --git a/tibby_fw_periph/main/include/gatt_svc.h b/tibby_fw_periph/main/include/gatt_svc.h
+index 8b07374..b81df42 100644
+--- a/tibby_fw_periph/main/include/gatt_svc.h
++++ b/tibby_fw_periph/main/include/gatt_svc.h
+@@ -17,6 +17,8 @@
+ /* Public function declarations */
+ int send_audio_notification(const uint8_t *data, uint16_t len);
+ bool is_notify_enabled(void);
++void tibby_reset_recording(void);
++void gatt_svr_disconnected(void);
+ void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg);
+ void gatt_svr_subscribe_cb(struct ble_gap_event *event);
+ int gatt_svc_init(void);
+diff --git a/tibby_fw_periph/main/main.c b/tibby_fw_periph/main/main.c
+index e9d1597..6ec92ac 100644
+--- a/tibby_fw_periph/main/main.c
++++ b/tibby_fw_periph/main/main.c
+@@ -10,6 +10,17 @@
+ #include "freertos/task.h"
+ #include "freertos/queue.h"
+ 
++static const char *BTN_TAG = "BTN";
++static volatile bool recording_active = false;
++#define BUTTON_GPIO GPIO_NUM_6
++static QueueHandle_t button_evt_queue = NULL;
++
++void tibby_reset_recording(void)
++{
++    recording_active = false;
++}
++
++#if !CONFIG_TIBBY_APP_MICROPHONE
+ // Audio sampling rate in Hz
+ // 16 kHz is good for voice applications
+ #define SAMPLE_RATE 16000
+@@ -21,12 +32,6 @@ static uint16_t microphone_data[MICROPHONE_SAMPLES] = {0};
+ static int32_t buf0[READ_LEN];
+ 
+ static const char *MIC_TAG = "MIC";
+-static const char *BTN_TAG = "BTN";
+-static volatile bool audio_streaming = false;  /* Set when central subscribes */
+-static volatile bool recording_active = false;  /* Set when button is pressed */
+-
+-#define BUTTON_GPIO GPIO_NUM_6
+-static QueueHandle_t button_evt_queue = NULL;
+ 
+ // These are opaque handles provided by ESP-IDF
+ // They represent hardware I2S receiver channels
+@@ -153,6 +158,8 @@ static void audio_stream_task(void *param)
+     }
+ }
+ 
++#endif /* !CONFIG_TIBBY_APP_MICROPHONE */
++
+ /* Button ISR handler - sends event to queue */
+ static void IRAM_ATTR button_isr_handler(void *arg)
+ {
+@@ -166,8 +173,32 @@ static void button_task(void *arg)
+     uint32_t gpio_num;
+     while (1) {
+         if (xQueueReceive(button_evt_queue, &gpio_num, portMAX_DELAY)) {
++            /* Debounce the active-low button; one command per full press/release. */
++            vTaskDelay(pdMS_TO_TICKS(40));
++            if (gpio_get_level(BUTTON_GPIO) != 0) continue;
++#if CONFIG_TIBBY_APP_MICROPHONE
++            if (is_notify_enabled()) {
++                bool next = !recording_active;
++                /* Even byte lengths also work with the older PCM MTU patch. */
++                const char *command = next ? "START\n" : "STOP";
++                int rc = send_audio_notification((const uint8_t *)command, strlen(command));
++                if (rc == 0) {
++                    recording_active = next;
++                    ESP_LOGI(BTN_TAG, "App microphone %s", next ? "START" : "STOP");
++                } else {
++                    ESP_LOGW(BTN_TAG, "Button notification failed (%d); press again", rc);
++                }
++            } else {
++                recording_active = false;
++                ESP_LOGW(BTN_TAG, "Arm the app microphone before pressing the button");
++            }
++#else
+             recording_active = !recording_active;
+             ESP_LOGI(BTN_TAG, "recording %s", recording_active ? "started" : "stopped");
++#endif
++            while (gpio_get_level(BUTTON_GPIO) == 0) vTaskDelay(pdMS_TO_TICKS(20));
++            vTaskDelay(pdMS_TO_TICKS(40));
++            xQueueReset(button_evt_queue);
+         }
+     }
+ }
+@@ -247,6 +278,7 @@ void app_main(void) {
+     /* Initialize button interrupt */
+     button_init();
+ 
++#if !CONFIG_TIBBY_APP_MICROPHONE
+     /* Initialize I2S */
+     init_i2s();
+ 
+@@ -255,6 +287,9 @@ void app_main(void) {
+ 
+     /* Start audio streaming task (runs on its own, doesn't block NimBLE) */
+     xTaskCreate(audio_stream_task, "audio_stream", 4096, NULL, 5, NULL);
++#else
++    ESP_LOGI(BTN_TAG, "Micless PCB mode: GPIO 6 controls the app microphone");
++#endif
+ 
+     /*
+      * NVS flash initialization
+diff --git a/tibby_fw_periph/main/src/gap.c b/tibby_fw_periph/main/src/gap.c
+index 7c495f1..dda672c 100644
+--- a/tibby_fw_periph/main/src/gap.c
++++ b/tibby_fw_periph/main/src/gap.c
+@@ -181,6 +181,7 @@ static int gap_event_handler(struct ble_gap_event *event, void *arg) {
+ 
+     /* Disconnect event */
+     case BLE_GAP_EVENT_DISCONNECT:
++        gatt_svr_disconnected();
+         /* A connection was terminated, print connection descriptor */
+         ESP_LOGI(TAG, "disconnected from peer; reason=%d",
+                  event->disconnect.reason);
+diff --git a/tibby_fw_periph/main/src/gatt_svc.c b/tibby_fw_periph/main/src/gatt_svc.c
+index e22bf8c..e0d88a2 100644
+--- a/tibby_fw_periph/main/src/gatt_svc.c
++++ b/tibby_fw_periph/main/src/gatt_svc.c
+@@ -98,6 +98,12 @@ int send_audio_notification(const uint8_t *data, uint16_t len) {
+     return rc;
+ }
+ 
++void gatt_svr_disconnected(void) {
++    notify_enabled = false;
++    notify_conn_handle_inited = false;
++    tibby_reset_recording();
++}
++
+ bool is_notify_enabled(void) {
+     return notify_enabled && notify_conn_handle_inited;
+ }
+@@ -159,6 +165,7 @@ void gatt_svr_subscribe_cb(struct ble_gap_event *event) {
+ 
+     /* Check attribute handle */
+     if (event->subscribe.attr_handle == heart_rate_chr_val_handle) {
++        tibby_reset_recording();
+         notify_conn_handle = event->subscribe.conn_handle;
+         notify_conn_handle_inited = true;
+         notify_enabled = event->subscribe.cur_notify;

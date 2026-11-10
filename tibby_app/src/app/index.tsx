@@ -6,7 +6,8 @@ import { createRequestGuard } from '../domain';
 import type { Answer, Turn } from '../domain';
 import { backend } from '../services/backend';
 import { createWearable } from '../services/wearable';
-import type { WearableDevice } from '../services/wearableTypes';
+import { createPhoneMicrophone } from '../services/phoneMicrophone';
+import type { Capture, WearableDevice } from '../services/wearableTypes';
 import { useAudioOutput } from '../hooks/useAudioOutput';
 import { describeOutput, outputIdentity } from '../services/audioOutputTypes';
 import { finishAudioPlayback, prepareAudioPlayback } from '../services/audioOutput';
@@ -21,6 +22,7 @@ const phaseLabels: Record<Phase, string> = {
 };
 
 export default function Home() {
+  const [serviceInfo, setServiceInfo] = useState({ model: 'Connecting...', check: false });
   const [started, setStarted] = useState(false);
   const [starting, setStarting] = useState(true);
   const [devices, setDevices] = useState<WearableDevice[]>([]);
@@ -32,6 +34,15 @@ export default function Home() {
   const [history, setHistory] = useState<Turn[]>([]);
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [busy, setBusy] = useState(false);
+  const [armed, setArmed] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const [scope, setScope] = useState<'conversation' | 'record'>('record');
+  const [microphone] = useState(createPhoneMicrophone);
+  const micCapture = useRef<Capture | null>(null);
+  const micVersion = useRef(0);
+  const commandQueue = useRef(Promise.resolve());
+  const commandHandler = useRef<(command: 'start' | 'stop') => Promise<void>>(async () => {});
   const [speaking, setSpeaking] = useState(false);
   const [playback, setPlayback] = useState<'idle' | 'starting' | 'test' | 'reply'>('idle');
   const [phase, setPhase] = useState<Phase>('idle');
@@ -62,6 +73,7 @@ export default function Home() {
       if (alive.current && version === operation.current) {
         guard.current.setEncounter(conversation.id, conversation.token);
         setConversationId(conversation.id); setHistory(conversation.history); setStarted(true);
+        setServiceInfo({ model: api.current.modelLabel, check: api.current.audioMode === 'check' });
       }
     } catch (cause) {
       if (alive.current && version === operation.current) {
@@ -76,11 +88,12 @@ export default function Home() {
   const stopPlayback = useCallback(() => {
     const version = ++speechVersion.current;
     setSpeaking(false); setPlayback('idle');
-    void Speech.stop().then(() => {
+    return Speech.stop().then(() => {
       if (version === speechVersion.current) return finishAudioPlayback();
     }).catch(() => undefined);
   }, []);
   function cancel() {
+    micVersion.current += 1; micCapture.current?.cancel(); micCapture.current = null; setRecording(false);
     guard.current.cancel(); controller.current?.abort(); controller.current = null;
     stopPlayback(); setBusy(false); setAnswer(null); setError(''); setPhase('idle');
   }
@@ -91,6 +104,7 @@ export default function Home() {
     const service = api.current;
     const subscription = AppState.addEventListener('change', (state) => {
       if (state !== 'active') {
+        micVersion.current += 1; micCapture.current?.cancel(); micCapture.current = null; setRecording(false); setArmed(false);
         requestGuard.cancel(); controller.current?.abort();
         speechVersion.current += 1; void Speech.stop().then(() => finishAudioPlayback()).catch(() => undefined);
         setBusy(false); setSpeaking(false); setPlayback('idle'); setAnswer(null); setPhase('idle');
@@ -99,6 +113,7 @@ export default function Home() {
     return () => {
       clearTimeout(startup);
       alive.current = false; operation.current += 1; deviceOperation.current += 1;
+      micVersion.current += 1; micCapture.current?.cancel(); micCapture.current = null;
       subscription.remove(); requestGuard.cancel(); controller.current?.abort();
       setupController.current?.abort();
       speechVersion.current += 1; void Speech.stop().then(() => finishAudioPlayback()).catch(() => undefined);
@@ -119,6 +134,7 @@ export default function Home() {
   function accept(result: Answer, input: string, kind: 'typed' | 'wearable') {
     if (!alive.current || !guard.current.accepts(result.context)) return;
     setAnswer(result); setPhase('ready');
+    void playAudio(false, result);
     const inputKind = result.provider === 'connection-test' ? 'wearable-check' as const : kind;
     setHistory((previous) => [...previous,
       { id: `${result.context.requestId}-user`, role: 'user' as const, inputKind, text: result.transcript ?? (input || 'Wearable audio received; not transcribed.') },
@@ -154,19 +170,19 @@ export default function Home() {
     try {
       await wearable.connect(found.id, () => {
         if (!alive.current) return;
-        cancel(); setDevice(null); setDeviceStatus('Disconnected');
+        cancel(); setArmed(false); setDevice(null); setDeviceStatus('Disconnected');
       });
       if (alive.current && version === deviceOperation.current) { setDevice(found); setDeviceStatus(`Connected: ${found.name}`); setDevices([]); }
     } catch (cause) { if (alive.current && version === deviceOperation.current) { setDeviceStatus('Not connected'); setError(cause instanceof Error ? cause.message : 'Connection failed.'); } }
     finally { if (alive.current && version === deviceOperation.current) setDeviceBusy(false); }
   }
   async function disconnect() {
-    deviceOperation.current += 1; cancel(); setDevice(null); setDeviceBusy(false); setDevices([]); setDeviceStatus('Not connected');
+    deviceOperation.current += 1; cancel(); setArmed(false); setDevice(null); setDeviceBusy(false); setDevices([]); setDeviceStatus('Not connected');
     await wearable.disconnect();
   }
-  async function playAudio(test = false) {
-    if (!test && (!answer || !guard.current.accepts(answer.context))) return;
-    const context = test ? null : answer!.context;
+  async function playAudio(test = false, reply: Answer | null = answer) {
+    if (!test && (!reply || !guard.current.accepts(reply.context))) return;
+    const context = test ? null : reply!.context;
     const version = ++speechVersion.current;
     const current = () => alive.current && version === speechVersion.current && (!context || guard.current.accepts(context));
     setPlayback('starting'); setError('');
@@ -182,13 +198,72 @@ export default function Home() {
         if (test && completed) setTestedOutput(audioIdentity);
         void finishAudioPlayback().catch(() => undefined);
       };
-      Speech.speak(test ? 'Tibby audio test. Confirm that you can hear this through your selected headphones or speaker.' : answer!.text,
+      Speech.speak(test ? 'Tibby audio test. Confirm that you can hear this through your selected headphones or speaker.' : reply!.text,
         { language: 'en-US', rate: 0.95, useApplicationAudioSession: true,
           onStart: () => { if (current()) { setSpeaking(true); setPlayback(test ? 'test' : 'reply'); void refreshOutput(); } },
           onDone: () => finish(true), onStopped: () => finish(),
           onError: () => { finish(); if (current()) setError('Playback failed. Check phone audio output.'); } });
     } catch { if (current()) { setSpeaking(false); setPlayback('idle'); setError('Playback unavailable.'); void finishAudioPlayback().catch(() => undefined); } }
   }
+  async function armMicrophone() {
+    try {
+      setError(''); await microphone.authorize();
+      if (alive.current) setArmed(true);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Microphone permission failed.'); }
+  }
+  useEffect(() => {
+    commandHandler.current = async (command) => {
+      if (!armed || AppState.currentState === 'background') return;
+      if (command === 'stop') { micCapture.current?.stop(); micCapture.current = null; return; }
+      if (!armed || !conversationId || busy || micCapture.current || !api.current.supportsAudio) return;
+      const version = ++micVersion.current;
+      await stopPlayback();
+      if (!alive.current || version !== micVersion.current) return;
+      controller.current?.abort();
+      const abort = new AbortController(); controller.current = abort;
+      const context = guard.current.begin();
+      const requestScope = scope;
+      setBusy(true); setAnswer(null); setError(''); setSeconds(0); setRecording(true);
+      const current = () => alive.current && version === micVersion.current && guard.current.accepts(context);
+      const fail = (cause: Error) => {
+        if (!current()) return;
+        micCapture.current = null; setRecording(false); setBusy(false); setPhase('error'); setError(cause.message);
+      };
+      try {
+        const capture = await microphone.start({
+          progress: (value) => { if (current()) setSeconds(value); },
+          error: fail,
+          complete: (wav) => {
+            if (!current()) return;
+            micCapture.current = null; setRecording(false); setPhase('sending');
+            void api.current.askAudio(context, wav, abort.signal, (next) => {
+              if (current()) setPhase(next);
+            }, requestScope).then((result) => {
+              if (current()) accept(result, 'App microphone recording', 'wearable');
+            }).catch((cause) => fail(cause instanceof Error ? cause : new Error('Audio request failed.')))
+              .finally(() => { if (current()) setBusy(false); });
+          },
+        });
+        if (current()) micCapture.current = capture; else capture.cancel();
+      } catch (cause) { fail(cause instanceof Error ? cause : new Error('Could not start microphone.')); }
+    };
+  });
+  useEffect(() => {
+    if (!device || !armed) return;
+    let listening = true;
+    try {
+      const stop = wearable.listenControls((command) => {
+        // Serialize STOP behind an in-flight microphone start/permission operation.
+        commandQueue.current = commandQueue.current.catch(() => undefined).then(() => listening ? commandHandler.current(command) : undefined);
+      }, (cause) => { cancel(); setArmed(false); setError(cause.message); });
+      return () => { listening = false; stop(); };
+    } catch (cause) {
+      const timer = setTimeout(() => { setArmed(false); setError(cause instanceof Error ? cause.message : 'PCB controls unavailable.'); }, 0);
+      return () => clearTimeout(timer);
+    }
+    // cancel uses stable refs and React state setters only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [device, armed, wearable]);
   function newConversation() {
     cancel(); setQuestion('');
     void startSession();
@@ -213,20 +288,34 @@ export default function Home() {
         : <Button label="Disconnect wearable" secondary onPress={() => void disconnect()} />}
       {devices.map((found) => <Button key={found.id} label={`Connect ${found.name} (${found.id.slice(-8)})`} disabled={deviceBusy} secondary onPress={() => void connect(found)} />)}
     </Step>
-    <Step number={2} title="Audio output" help={<>
-      <Label style={styles.small}>Pair headphones and select audio output in phone settings. This connection is separate from the wearable.</Label>
+    <Step number={2} title="Audio input" help={<>
+      <Label style={styles.small}>The PCB is the remote button; audio comes from the app microphone. Arm once, press START on the PCB, speak toward your phone, then press STOP on the PCB to send. Recording ends automatically at 30 seconds. Keep the app open.</Label>
+      <Label style={styles.small}>Button firmware must send ASCII START and STOP notifications on the TIBBY characteristic. Microphone audio from the board is ignored in this mode.</Label>
+    </>}>
+      <Label accessibilityLiveRegion="polite">{recording ? `Recording app microphone: ${seconds.toFixed(1)} s` : armed ? 'Microphone armed; waiting for PCB START' : 'Microphone not armed'}</Label>
+      <Label style={styles.small}>{serviceInfo.model}</Label>
+      {serviceInfo.check && <Label style={styles.small}>Backend is in connection-test mode: audio upload only, no transcription or AI. Configure Navigator for retrieval.</Label>}
+      <Button label={armed ? 'Disarm microphone' : 'Enable app microphone / PCB controls'} disabled={!device || !started || busy}
+        onPress={() => armed ? setArmed(false) : void armMicrophone()} />
+      <Button label={scope === 'record' ? 'Mode: sample record retrieval' : 'Mode: conversation'} secondary disabled={busy}
+        onPress={() => setScope(scope === 'record' ? 'conversation' : 'record')} />
+      <Label style={styles.small}>{scope === 'record' ? 'Retrieval test: ask ?What is the latest potassium?? The reply includes the synthetic record source.' : 'Ask about words captured in this conversation.'}</Label>
+      {recording && <Button label="Cancel recording" secondary onPress={cancel} />}
+    </Step>
+    <Step number={3} title="Audio output" help={<>
+      <Label style={styles.small}>Replies play automatically as soon as they arrive. Pair headphones and select audio output in phone settings. This connection is separate from the wearable.</Label>
       <Label style={styles.small}>Use Test audio to check audibility. A detected or connected device does not prove where speech is playing.</Label>
       {Platform.OS === 'web' && <Label style={styles.small}>Browser audio uses the output selected on your device. Headphone-route detection is unavailable in this web demo.</Label>}
       {Platform.OS === 'ios' && <Label style={styles.small}>If speech is muted, check the phone volume and silent mode.</Label>}
     </>}>
         <Label accessibilityLiveRegion="polite">{describeOutput(output)}</Label>
         {!!output.connected.length && <Label style={styles.small}>Detected audio devices: {output.connected.map((item) => item.name).join(', ')}</Label>}
-        <Button label={playback !== 'idle' ? 'Stop audio' : 'Test audio'}
+        <Button disabled={recording} label={playback !== 'idle' ? 'Stop audio' : 'Test audio'}
           onPress={() => playback !== 'idle' ? stopPlayback() : void playAudio(true)} secondary />
         {testedOutput === audioIdentity && confirmedOutput !== audioIdentity && <Button label="I heard the test audio" secondary onPress={() => setConfirmedOutput(audioIdentity)} />}
         {confirmedOutput === audioIdentity && <Label style={styles.small}>You confirmed the test was audible. This is a listening check, not automatic verification of the headphone route.</Label>}
     </Step>
-    <Step number={3} title="Chat history" help={<>
+    <Step number={4} title="Chat history" help={<>
       <Label style={styles.small}>Review your questions and replies, or ask a follow-up without connecting the wearable.</Label>
       <Label style={styles.small}>New conversation clears this chat and starts fresh. The server keeps only the latest 40 messages for the current session.</Label>
     </>}>
@@ -236,7 +325,7 @@ export default function Home() {
         {busy && <Button label="Cancel request" secondary onPress={() => { cancel(); setPhase('cancelled'); }} />}
         {answer && <View style={styles.answer}>
           <Label style={styles.emphasis}>Latest response</Label>
-          {answer.transcript && <><Label style={styles.small}>Wearable transcript</Label><Label>{answer.transcript}</Label></>}
+          {answer.transcript && <><Label style={styles.small}>App microphone transcript</Label><Label>{answer.transcript}</Label></>}
           <Label selectable>{answer.text}</Label>
           <Label style={styles.small}>{answer.provider === 'navigator' ? 'Navigator LLM' : answer.provider === 'connection-test' ? 'Audio connection receipt — no transcription or AI' : 'Demo reply — no AI'}</Label>
           <Button label={playback === 'reply' || playback === 'starting' ? 'Stop playback' : 'Play / replay response'}
@@ -246,7 +335,7 @@ export default function Home() {
         <Button label="New conversation" secondary disabled={starting || busy} onPress={newConversation} />
         {!history.length && <Label style={styles.small}>{conversationId ? 'No messages in this conversation yet.' : 'Waiting for a connection.'}</Label>}
         {history.map((turn) => <View key={turn.id} style={styles.turn}>
-          <Label style={styles.emphasis}>{turn.role === 'assistant' ? 'Reply' : turn.inputKind === 'wearable' ? 'Wearable transcript' : turn.inputKind === 'wearable-check' ? 'Wearable audio check (not transcribed)' : 'Phone question'}</Label>
+          <Label style={styles.emphasis}>{turn.role === 'assistant' ? 'Reply' : turn.inputKind === 'wearable' ? 'App microphone transcript' : turn.inputKind === 'wearable-check' ? 'Wearable audio check (not transcribed)' : 'Phone question'}</Label>
           <Label>{turn.text}</Label>
         </View>)}
         <Label style={styles.fieldLabel}>Ask about this conversation</Label>

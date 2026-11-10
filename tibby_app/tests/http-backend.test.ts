@@ -123,3 +123,19 @@ test('demo audio check sends real WAV bytes and progress without claiming transc
   assert.equal(answer.transcript, null);
   assert.equal(answer.provider, 'connection-test');
 });
+
+
+test('audio retrieval scope reaches backend and preserves record evidence', async () => {
+  const backend = createHttpBackend('http://test', async (input, init) => {
+    if (String(input).endsWith('/sessions')) return Response.json({ sessionToken: 's', mode: 'synthetic', provider: 'navigator' });
+    if (String(input).endsWith('/encounters')) return Response.json([patient]);
+    const body = JSON.parse(String(init?.body));
+    assert.equal(body.scope, 'record');
+    return Response.json({ context: body.context, text: '4.2 mmol/L', transcript: 'What is the latest potassium?',
+      provider: 'navigator', synthetic: true, sources: [{ title: 'Synthetic lab', detail: 'Fixture evidence' }] });
+  });
+  const signal = new AbortController().signal; await backend.start(signal);
+  const answer = await backend.askAudio({ requestId: 1, encounterId: patient.id, contextVersion: 1 }, new Uint8Array([1, 2]), signal, undefined, 'record');
+  assert.equal(answer.sources[0].title, 'Synthetic lab');
+  assert.equal(answer.transcript, 'What is the latest potassium?');
+});

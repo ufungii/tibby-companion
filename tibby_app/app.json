@@ -41,6 +41,14 @@
           "neverForLocation": true,
           "bluetoothAlwaysPermission": "Connect to the TIBBY wearable to receive microphone recordings."
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow TIBBY to record your voice when you press the PCB button.",
+          "enableBackgroundRecording": false,
+          "enableBackgroundPlayback": false
+        }
       ]
     ],
     "scheme": "tibby",

@@ -160,3 +160,45 @@ production hosting and background operation remain separate milestones.
 
 References: [BLE library setup](https://github.com/dotintent/react-native-ble-plx),
 [Expo development builds](https://docs.expo.dev/develop/development-builds/introduction/).
+
+
+## PCB buttons with the app microphone (micless board)
+
+The Audio input panel now captures the phone/browser microphone. Connect the PCB,
+then tap **Enable app microphone / PCB controls** and grant microphone access.
+Press the board's START button, speak toward the phone, and press STOP to upload.
+Keep the app in the foreground. Recordings are limited to 30 seconds; disconnect,
+background, cancel and unmount discard an active recording.
+
+The button protocol currently requires one ASCII `START` or `STOP` per BLE
+notification (optional trailing whitespace), using the existing service
+`0000180d-0000-1000-8000-00805f9b34fb` and notify characteristic
+`00002a37-0000-1000-8000-00805f9b34fb` on `TIBBY_peripheral`. PCM packets and other
+messages do not trigger recording. The original `jdados/tibby` firmware at `08e1b3a` does not send button messages:
+it only toggles/logs a flag, and streams microphone audio whenever subscribed.
+Apply the companion repository's `docs/firmware-app-microphone.patch` to that
+firmware source, build, and flash the board before testing. The local checkout
+at `tibby_backend/tibby` already has these source changes applied.
+
+**Sample record retrieval** is the default audio mode. With Navigator configured,
+ask ?What is the latest potassium?? and check the displayed transcript, synthetic
+answer and source. Switch to **conversation** for session follow-ups. The backend
+still uses synthetic fixtures; it has no real medical-record integration. In
+backend demo mode, the UI explicitly shows a connection-test receipt only, with
+no transcription or retrieval. The API's legacy `wearable` inputKind also labels
+these PCB-triggered app-microphone transcripts.
+
+Replies now automatically invoke device text-to-speech as soon as the complete
+backend response passes the stale-response guard. Replay and Stop remain available.
+There is no server-generated audio or response streaming: transcription, the model,
+network transit and device speech startup still contribute latency. Browser policies
+may block automatic speech; Test audio / Replay provide a user-gesture fallback.
+
+Native capture uses Expo Audio PCM streaming; browser capture uses Web Audio.
+Both convert the actual microphone rate to 16 kHz mono 16-bit WAV for the existing
+backend endpoints. Native builds must be rebuilt after installing this change
+because `expo-audio` and microphone permission configuration were added. Expo Go
+still cannot connect to the PCB. Browser microphone access requires HTTPS or
+localhost and a browser supporting both microphone access and Web Bluetooth.
+Physical PCB, phone capture, output routing and live Navigator access still require
+a hardware test; automated checks do not prove those paths work on the board.

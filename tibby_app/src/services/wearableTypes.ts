@@ -11,5 +11,6 @@ export interface Wearable {
   connect(id: string, onDisconnect: () => void): Promise<void>;
   disconnect(): Promise<void>;
   capture(callbacks: CaptureCallbacks): Capture;
+  listenControls(onCommand: (command: "start" | "stop") => void, onError: (error: Error) => void): () => void;
   destroy(): Promise<void>;
 }

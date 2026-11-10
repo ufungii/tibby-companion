@@ -160,10 +160,10 @@ export function createHttpBackend(url: string, fetcher: Fetch = fetch): TibbyBac
       progress?.('sending');
       return submit(context, signal, '/v1/ask', { context, question, scope: 'conversation' }, progress);
     },
-    async askAudio(context, audio, signal, progress) {
+    async askAudio(context, audio, signal, progress, scope = 'conversation') {
       progress?.('sending');
       return submit(context, signal, audioMode === 'check' ? '/v1/audio/check' : '/v1/ask/audio/base64',
-        { context, audioBase64: fromByteArray(audio) }, progress);
+        { context, audioBase64: fromByteArray(audio), scope }, progress);
     },
     async history(encounterId, signal) {
       if (!sessionToken) throw new Error('Start a new session.');
