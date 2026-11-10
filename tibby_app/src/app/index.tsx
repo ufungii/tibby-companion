@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { AppState, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import { createRequestGuard } from '../domain';
@@ -22,7 +22,6 @@ const phaseLabels: Record<Phase, string> = {
 };
 
 export default function Home() {
-  const [serviceInfo, setServiceInfo] = useState({ model: 'Connecting...', check: false });
   const [started, setStarted] = useState(false);
   const [starting, setStarting] = useState(true);
   const [devices, setDevices] = useState<WearableDevice[]>([]);
@@ -73,7 +72,6 @@ export default function Home() {
       if (alive.current && version === operation.current) {
         guard.current.setEncounter(conversation.id, conversation.token);
         setConversationId(conversation.id); setHistory(conversation.history); setStarted(true);
-        setServiceInfo({ model: api.current.modelLabel, check: api.current.audioMode === 'check' });
       }
     } catch (cause) {
       if (alive.current && version === operation.current) {
@@ -279,45 +277,29 @@ export default function Home() {
     <Label style={styles.meta}>Research demo · test data only</Label>
     {!!error && <Label accessibilityRole="alert" style={styles.error}>{error}</Label>}
     {!started && !starting && <Button label="Retry connection" secondary onPress={() => void startSession()} />}
-    <Step number={1} title="Wearable" help={<>
-      <Label style={styles.small}>Keep the wearable nearby with Bluetooth enabled on the phone. Scan, choose TIBBY_peripheral in the device picker, then connect below. Disconnect any other phone or computer already using the board.</Label>
-      {!wearable.available && <Label style={styles.small}>On iPhone, open this website inside Bluefy and allow Bluetooth. Safari and Expo Go cannot connect to the PCB; an installed TIBBY app is another option.</Label>}
-    </>}>
+    <Step number={1} title="Wearable">
       <Label accessibilityLiveRegion="polite">{wearable.available ? deviceStatus : 'Bluetooth unavailable in this browser or preview'}</Label>
       {!device ? <Button label={deviceBusy ? 'Working...' : 'Scan for TIBBY'} disabled={deviceBusy || !wearable.available} onPress={() => void scan()} />
         : <Button label="Disconnect wearable" secondary onPress={() => void disconnect()} />}
       {devices.map((found) => <Button key={found.id} label={`Connect ${found.name} (${found.id.slice(-8)})`} disabled={deviceBusy} secondary onPress={() => void connect(found)} />)}
     </Step>
-    <Step number={2} title="Audio input" help={<>
-      <Label style={styles.small}>The PCB is the remote button; audio comes from the app microphone. Arm once, press START on the PCB, speak toward your phone, then press STOP on the PCB to send. Recording ends automatically at 30 seconds. Keep the app open.</Label>
-      <Label style={styles.small}>Button firmware must send ASCII START and STOP notifications on the TIBBY characteristic. Microphone audio from the board is ignored in this mode.</Label>
-    </>}>
+    <Step number={2} title="Audio input">
       <Label accessibilityLiveRegion="polite">{recording ? `Recording app microphone: ${seconds.toFixed(1)} s` : armed ? 'Microphone armed; waiting for PCB START' : 'Microphone not armed'}</Label>
-      <Label style={styles.small}>{serviceInfo.model}</Label>
-      {serviceInfo.check && <Label style={styles.small}>Backend is in connection-test mode: audio upload only, no transcription or AI. Configure Navigator for retrieval.</Label>}
       <Button label={armed ? 'Disarm microphone' : 'Enable app microphone / PCB controls'} disabled={!device || !started || busy}
         onPress={() => armed ? setArmed(false) : void armMicrophone()} />
       <Button label={scope === 'record' ? 'Mode: sample record retrieval' : 'Mode: conversation'} secondary disabled={busy}
         onPress={() => setScope(scope === 'record' ? 'conversation' : 'record')} />
       {recording && <Button label="Cancel recording" secondary onPress={cancel} />}
     </Step>
-    <Step number={3} title="Audio output" help={<>
-      <Label style={styles.small}>Replies play automatically as soon as they arrive. Pair headphones and select audio output in phone settings. This connection is separate from the wearable.</Label>
-      <Label style={styles.small}>Use Test audio to check audibility. A detected or connected device does not prove where speech is playing.</Label>
-      {Platform.OS === 'web' && <Label style={styles.small}>Browser audio uses the output selected on your device. Headphone-route detection is unavailable in this web demo.</Label>}
-      {Platform.OS === 'ios' && <Label style={styles.small}>If speech is muted, check the phone volume and silent mode.</Label>}
-    </>}>
+    <Step number={3} title="Audio output">
         <Label accessibilityLiveRegion="polite">{describeOutput(output)}</Label>
         {!!output.connected.length && <Label style={styles.small}>Detected audio devices: {output.connected.map((item) => item.name).join(', ')}</Label>}
         <Button disabled={recording} label={playback !== 'idle' ? 'Stop audio' : 'Test audio'}
           onPress={() => playback !== 'idle' ? stopPlayback() : void playAudio(true)} secondary />
         {testedOutput === audioIdentity && confirmedOutput !== audioIdentity && <Button label="I heard the test audio" secondary onPress={() => setConfirmedOutput(audioIdentity)} />}
-        {confirmedOutput === audioIdentity && <Label style={styles.small}>You confirmed the test was audible. This is a listening check, not automatic verification of the headphone route.</Label>}
+        {confirmedOutput === audioIdentity && <Label style={styles.small}>Audio confirmed</Label>}
     </Step>
-    <Step number={4} title="Chat history" help={<>
-      <Label style={styles.small}>Review your questions and replies, or ask a follow-up without connecting the wearable.</Label>
-      <Label style={styles.small}>New conversation clears this chat and starts fresh. The server keeps only the latest 40 messages for the current session.</Label>
-    </>}>
+    <Step number={4} title="Chat history">
         <Label accessibilityLiveRegion="polite" style={styles.emphasis}>
           {playback === 'starting' ? 'Preparing audio...' : playback === 'reply' && speaking ? 'Playing response' : phaseLabels[phase]}
         </Label>

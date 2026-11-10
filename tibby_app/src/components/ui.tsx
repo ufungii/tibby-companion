@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { PropsWithChildren } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { TextProps } from 'react-native';
 import { theme } from '../theme';
@@ -18,21 +17,14 @@ export function Button({ label, onPress, disabled = false, secondary = false }: 
   </Pressable>;
 }
 
-// Only guidance is collapsed. Controls and live state never disappear with it.
-export function Step({ number, title, help, children }: PropsWithChildren<{
-  number: number; title: string; help: ReactNode;
+export function Step({ number, title, children }: PropsWithChildren<{
+  number: number; title: string;
 }>) {
-  const [expanded, setExpanded] = useState(false);
   return <View style={styles.section}>
-    <Pressable accessibilityRole="button" accessibilityLabel={`${title} details`}
-      accessibilityHint="Show or hide guidance for this step"
-      accessibilityState={{ expanded }} aria-expanded={expanded} onPress={() => setExpanded((value) => !value)}
-      style={({ pressed }) => [styles.stepHeading, pressed && styles.pressed]}>
+    <View style={styles.stepHeading}>
       <Label style={styles.stepNumber}>{String(number).padStart(2, '0')}</Label>
       <Label style={styles.stepTitle}>{title}</Label>
-      <Label importantForAccessibility="no" aria-hidden style={styles.chevron}>{expanded ? '⌄' : '›'}</Label>
-    </Pressable>
-    {expanded && <View style={styles.help}>{help}</View>}
+    </View>
     <View style={styles.content}>{children}</View>
   </View>;
 }
